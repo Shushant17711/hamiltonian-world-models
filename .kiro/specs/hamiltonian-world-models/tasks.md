@@ -98,14 +98,14 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: KL ≥ free-nats floor, prior rollout shapes, tiny train
   - _Requirements: 4.4_
 
-- [ ] 7. Implement evaluation and statistics
+- [x] 7. Implement evaluation and statistics
 - [x] 7.1 Implement rollout-error and energy-drift evaluation
   - `hwm/eval/rollout.py`: nMSE at h ∈ {10, 100, 1000} on test_in/test_ood/test_long, angles via (cos, sin)
   - `hwm/eval/energy.py`: 10k-step passive rollouts → decode → true H drift (and learned-energy drift when `energy()` is defined), chunked to fit 8 GB
   - `scripts/evaluate.py results/<run>` writes `results/<run>/eval/metrics.json`; tests on an oracle "model" that wraps the simulator (drift ≈ 0, nMSE ≈ 0)
   - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 7.2 Implement bootstrap statistics and the sweep runner
+- [x] 7.2 Implement bootstrap statistics and the sweep runner
   - `hwm/eval/stats.py`: `bootstrap_ci`, paired-difference CI, geometric-mean ratio CI
   - `scripts/sweep.py configs/sweeps/<name>.yaml`: env × model × seed grid → train + evaluate, skipping finished runs
   - Tests: CI covers the true mean in ≥ 90% of 200 synthetic trials; sweep dry-run lists the expected run ids
