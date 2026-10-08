@@ -76,6 +76,7 @@ class Trainer:
         }
         self.train_ds = WindowDataset(self.data_dir, "train", self.tc.curriculum.horizons[0], **kw)
         self._check_horizon(self.train_ds, H_max)
+        self.model.prepare(self.normaliser, self.train_ds.obs)
         val_ds = WindowDataset(self.data_dir, "val", self.tc.val_horizon, **kw)
         g = torch.Generator(device=self.device).manual_seed(10_007 + cfg.seed)
         self.val_batch = val_ds.sample(self.tc.val_windows, g)
@@ -114,6 +115,8 @@ class Trainer:
             "opt": self.opt.state_dict(),
             "sched": self.sched.state_dict(),
             "gen": self.gen.get_state(),
+            "torch_rng": torch.get_rng_state(),
+            "cuda_rng": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
             "step": self.step,
             "best": self.best,
             "bad_evals": self.bad_evals,
@@ -136,6 +139,10 @@ class Trainer:
         self.sched.load_state_dict(s["sched"])
         self.gen.set_state(s["gen"].cpu() if self.device.type == "cpu" else s["gen"])
         self.step, self.best, self.bad_evals, self.done = s["step"], s["best"], s["bad_evals"], s["done"]
+        # models may draw from the global RNG (e.g. PINN collocation points); restore it for exact resume
+        torch.set_rng_state(s["torch_rng"].cpu())
+        if s["cuda_rng"]:
+            torch.cuda.set_rng_state_all([r.cpu() for r in s["cuda_rng"]])
         return True
 
     def _log(self, record: dict[str, Any]) -> None:

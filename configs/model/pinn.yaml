@@ -1,0 +1,10 @@
+# Model B: PINN = model A + physics residual on predictions and 256 collocation states
+# (design §5, Req 4.2). Uses the env's analytic dynamics: privileged knowledge. State mode only.
+extends: ../train.yaml
+model:
+  name: pinn
+  hidden: 256
+  layers: 3
+  layernorm: false
+  lambda_phys: 1.0
+  collocation: 256

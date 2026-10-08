@@ -98,8 +98,19 @@ class WorldModel(nn.Module):
             rew = (ro.reward - batch.rewards[:, :H]).pow(2).mean()
             total = total + rew
             logs["reward"] = rew.item()
+        for name, term in self.extra_loss(batch, ro, H).items():
+            total = total + term
+            logs[name] = term.item()
         logs["loss"] = total.item()
         return total, logs
+
+    def extra_loss(self, batch: Batch, ro: Rollout, horizon: int) -> dict[str, Tensor]:
+        """Model-specific weighted loss terms added to the default loss (none by default)."""
+        return {}
+
+    def prepare(self, normaliser, train_obs: Tensor) -> None:
+        """Called once by the trainer before training with the train-split normaliser and raw
+        train observations (N, T+1, d_obs). Anything stored must be a buffer so checkpoints keep it."""
 
     @staticmethod
     def rollout_loss(pred: Tensor, target: Tensor) -> Tensor:

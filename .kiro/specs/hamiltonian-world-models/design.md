@@ -124,7 +124,7 @@ Default widths: hidden 256, 3 layers. Every model is < 5M params (asserted in th
 
 - **A — MLP.** `z = normalised obs`; `step: z + f([z, u])`. In pixel mode A is not run (it has no
   latent); A, B and C are state-only, as in PLAN phase 2.
-- **B — PINN.** A plus `λ_phys · ‖(v̂_{t+1} − v̂_t)/dt − a_true(q̂_mid, v̂_mid, u)‖²` on predicted
+- **B — PINN.** A plus `λ_phys · ‖(v̂_{t+1} − v̂_t) − dt/6·(a₀ + 4a_m + a₁)‖² / std_v²` (Simpson over the step, `a = a_true(q, v, u)`, Hermite midpoint) on predicted
   states, and the same residual on 256 random collocation states per batch drawn from the train
   state box. `a_true` uses the env's analytic dynamics, which is privileged knowledge and is
   labelled so in every table.

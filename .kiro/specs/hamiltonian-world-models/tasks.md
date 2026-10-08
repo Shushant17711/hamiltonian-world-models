@@ -83,7 +83,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - _Requirements: 4.1, 6.1, 6.2, 6.3_
 
 - [ ] 6. Implement the remaining baselines
-- [ ] 6.1 Implement model B (PINN)
+- [x] 6.1 Implement model B (PINN)
   - `hwm/models/pinn.py`: model A + physics residual on predicted states + 256 collocation points per batch, using the torch `accel` from 2.3; `configs/model/pinn.yaml`
   - Tests: residual is ~0 on true simulator transitions and > 0 on perturbed ones; contract test and tiny train
   - _Requirements: 4.2_
