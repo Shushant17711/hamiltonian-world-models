@@ -78,3 +78,25 @@ class Orbit(MechanicalEnv):
         e_vec = ((v2 - self.mu / r)[..., None] * q - rv[..., None] * p) / self.mu
         L = q[..., 0] * p[..., 1] - q[..., 1] * p[..., 0]
         return a, np.linalg.norm(e_vec, axis=-1), L
+
+    # ---- task: transfer from the circular r = 1 orbit to r = 1.5 ---------------------------------
+    episode_len = 400
+    hold = 50
+    r_target = 1.5
+
+    def task_start(self, N: int = 1):
+        return np.repeat(self.from_elements(1.0, 0.0, 0.0)[None], N, 0)
+
+    @staticmethod
+    def radial(obs):
+        """(r, r_dot) from obs (..., 4) = (x, y, vx, vy); numpy or torch."""
+        r = ((obs[..., :2] ** 2).sum(-1)) ** 0.5
+        return r, (obs[..., :2] * obs[..., 2:]).sum(-1) / r
+
+    def reward(self, obs, u):
+        r, r_dot = self.radial(obs)
+        return -(abs(r - self.r_target) + abs(r_dot)) - self._effort(u, self.u_max)
+
+    def success(self, obs_seq):
+        r, r_dot = self.radial(np.asarray(obs_seq)[..., -self.hold :, :])
+        return ((np.abs(r - self.r_target) < 0.05) & (np.abs(r_dot) < 0.05)).all(-1)

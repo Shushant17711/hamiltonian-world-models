@@ -67,6 +67,25 @@ class Env(ABC):
             qp.shape[:-1]
         )
 
+    # ---- task (Req 1.4, design §2) --------------------------------------------------------------
+    episode_len: int = 200
+
+    def task_start(self, N: int = 1) -> np.ndarray:
+        """Canonical (q, p) start state of the control task, shape (N, 2n)."""
+        return np.zeros((N, 2 * self.n))
+
+    def reward(self, obs, u):
+        """Dense shaped reward (numpy or torch), obs (..., d_obs), u (..., d_u) -> (...)."""
+        raise NotImplementedError
+
+    def success(self, obs_seq) -> np.ndarray:
+        """Task success of an episode, obs_seq (..., T+1, d_obs) -> bool (...)."""
+        raise NotImplementedError
+
+    @staticmethod
+    def _effort(u, u_max: float, weight: float = 1e-3):
+        return weight * ((u / u_max) ** 2).sum(-1)
+
     # ---- observations --------------------------------------------------------------------------
     @property
     def d_obs(self) -> int:

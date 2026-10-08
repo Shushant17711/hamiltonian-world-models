@@ -33,3 +33,14 @@ class Pendulum(MechanicalEnv):
 
     def sample_config(self, rng, N):
         return rng.uniform(-np.pi, np.pi, (N, 1))
+
+    # ---- task: swing up and balance ------------------------------------------------------------
+    episode_len = 200
+    hold = 50
+
+    def reward(self, obs, u):
+        return -xp_of(obs).cos(obs[..., 0]) - self._effort(u, self.u_max)
+
+    def success(self, obs_seq):
+        tail = np.asarray(obs_seq)[..., -self.hold :, 0]
+        return (np.cos(tail) < -0.95).all(-1)

@@ -54,3 +54,14 @@ class CartPole(MechanicalEnv):
 
     def valid_state(self, qp):
         return np.abs(qp[..., 0]) <= self.x_limit
+
+    # ---- task: swing up and balance near the centre ---------------------------------------------
+    episode_len = 250
+    hold = 50
+
+    def reward(self, obs, u):
+        return -xp_of(obs).cos(obs[..., 1]) - 0.05 * obs[..., 0] ** 2 - self._effort(u, self.u_max)
+
+    def success(self, obs_seq):
+        tail = np.asarray(obs_seq)[..., -self.hold :, :]
+        return ((np.cos(tail[..., 1]) < -0.95) & (np.abs(tail[..., 0]) < 2.0)).all(-1)

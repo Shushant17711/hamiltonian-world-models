@@ -40,7 +40,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: dH vs finite differences, drift < 1e-5 over 10k steps, (q, q̇) ↔ (q, p) round-trip
   - _Requirements: 1.1, 1.2, 1.3, 1.5_
 
-- [ ] 2.4 Add task rewards, success predicates and episode starts
+- [x] 2.4 Add task rewards, success predicates and episode starts
   - `reward(obs, u)` (numpy + torch, batched), `success(obs_seq)`, `task_start()` per env per design §2
   - Tests: success is true on hand-built upright / transferred trajectories and false on hanging ones; numpy and torch rewards agree
   - _Requirements: 1.4_

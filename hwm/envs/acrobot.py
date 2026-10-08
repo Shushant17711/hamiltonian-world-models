@@ -57,3 +57,13 @@ class Acrobot(MechanicalEnv):
         """Height of the tip above the pivot (numpy or torch)."""
         xp = xp_of(q)
         return -self.l1 * xp.cos(q[..., 0]) - self.l2 * xp.cos(q[..., 0] + q[..., 1])
+
+    # ---- task: raise the tip ---------------------------------------------------------------------
+    episode_len = 300
+    tip_target = 1.5
+
+    def reward(self, obs, u):
+        return self.tip_height(obs) / (self.l1 + self.l2) - self._effort(u, self.u_max)
+
+    def success(self, obs_seq):
+        return (self.tip_height(np.asarray(obs_seq)) >= self.tip_target).any(-1)
