@@ -1,0 +1,12 @@
+# Model D: RSSM, Dreamer-style (design §5, Req 4.4). Runs in state and pixel modes.
+extends: ../train.yaml
+model:
+  name: rssm
+  deter: 200       # GRU state h
+  stoch: 30        # diagonal-Gaussian s
+  embed: 256
+  hidden: 256
+  layers: 3
+  kl_balance: 0.8
+  free_nats: 1.0
+  beta_kl: 1.0

@@ -82,7 +82,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: 50-step train on a tiny pendulum dataset lowers the loss, resume continues from the saved step, a 6M-param config is refused
   - _Requirements: 4.1, 6.1, 6.2, 6.3_
 
-- [ ] 6. Implement the remaining baselines
+- [x] 6. Implement the remaining baselines
 - [x] 6.1 Implement model B (PINN)
   - `hwm/models/pinn.py`: model A + physics residual on predicted states + 256 collocation points per batch, using the torch `accel` from 2.3; `configs/model/pinn.yaml`
   - Tests: residual is ~0 on true simulator transitions and > 0 on perturbed ones; contract test and tiny train
@@ -93,7 +93,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: penalty is zero on non-passive batches, contract test, tiny train
   - _Requirements: 4.3_
 
-- [ ] 6.3 Implement model D (RSSM) in state mode
+- [x] 6.3 Implement model D (RSSM) in state mode
   - `hwm/models/rssm.py`: GRU 200 + Gaussian 30, posterior/prior, KL balancing 0.8, free nats 1; open-loop `rollout` via the prior; obs encoder/decoder pluggable for later pixel mode
   - Tests: KL ≥ free-nats floor, prior rollout shapes, tiny train
   - _Requirements: 4.4_
