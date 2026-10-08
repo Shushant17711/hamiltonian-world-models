@@ -50,14 +50,14 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: output shape and range, pendulum frame centroid moves with θ, different states give different images, 1000 frames render in < 1 s on CPU
   - _Requirements: 3.2_
 
-- [ ] 3. Generate data and feed it to models
+- [x] 3. Generate data and feed it to models
 - [x] 3.1 Implement dataset generation with energy bands and OU actions
   - `hwm/data/generate.py`: OU actions, 25% passive, splits train/val/test_in/test_ood/test_long per design §3, `.npz` under `data/<env>/<hash>/`
   - `configs/data/{pendulum,cartpole,acrobot,orbit}.yaml`; `scripts/gen_data.py` skips work when the hash dir exists
   - Tests: tiny config generates every split with the right shapes, energies of OOD initial states outside the train band, same hash → identical files
   - _Requirements: 2.1, 2.2, 2.3_
 
-- [ ] 3.2 Implement the window dataset, normalisation and pixel contexts
+- [x] 3.2 Implement the window dataset, normalisation and pixel contexts
   - `hwm/data/dataset.py`: `WindowDataset(split, horizon, context, obs_mode)` returning `Batch(ctx, actions, target, rewards, passive)`; normaliser fit on train only
   - Pixel mode renders ctx/target on the fly via 2.5, with k = 3 context frames
   - Tests: window alignment (target[0] is the step after the last ctx frame), normaliser round-trip, pixel batch shapes

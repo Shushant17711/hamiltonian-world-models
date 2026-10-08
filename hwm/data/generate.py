@@ -66,7 +66,7 @@ def generate_split(
     max_rounds: int = 50,
 ) -> dict[str, np.ndarray]:
     """N trajectories from ``band``; any trajectory that leaves ``env.valid_state`` is redrawn."""
-    n_passive = int(round(passive_frac * N))
+    n_passive = round(passive_frac * N)
     passive = np.zeros(N, dtype=bool)
     passive[:n_passive] = True
     rng.shuffle(passive)
@@ -108,7 +108,11 @@ def build_split(env: Env, cfg: Config, split: str) -> dict[str, np.ndarray]:
     N, T = cfg.sizes[split]
     act = cfg.actions
     centering = act.get("centering")
-    kw = dict(ou_theta=act.ou_theta, ou_sigma=act.ou_sigma, centering=tuple(centering) if centering else None)
+    kw = {
+        "ou_theta": act.ou_theta,
+        "ou_sigma": act.ou_sigma,
+        "centering": tuple(centering) if centering else None,
+    }
     if split == "test_long":
         parts = []
         for ood, band in ((False, cfg.bands.train), (True, cfg.bands.ood)):
