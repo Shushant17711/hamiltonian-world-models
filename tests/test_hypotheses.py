@@ -101,7 +101,7 @@ def test_incomplete_and_exploratory(tmp_path):
     _tree(tmp_path, skip={("orbit", "C", 2), ("pendulum", "A", 0)})
     _write(tmp_path, "pendulum", "E", 7)  # extra seed: exploratory only
     vs = write_verdicts(tmp_path)
-    h1, h2, h4 = vs
+    h1, h2, _, h4 = vs
     assert h4.status == "incomplete"  # no Lyapunov file and no curves
     assert [e.status for e in h1.envs] == ["pass", "pass", "incomplete"] and h1.status == "supported"
     # orbit-C is also an H2 baseline: pendulum and orbit are open, 2 passes are not yet 3
@@ -136,7 +136,7 @@ def _h4_tree(root, late_ratios):
 
 def test_h4_confirmed(tmp_path):
     _h4_tree(tmp_path, late_ratios=[0.8, 1.0, 1.25])
-    h4 = write_verdicts(tmp_path)[2]
+    h4 = write_verdicts(tmp_path)[3]
     d = h4.envs[0].detail
     assert (d["part_a"], d["part_b"], h4.status) == ("holds", "holds", "confirmed")
     assert all(r["baseline"] == "A" for r in d["rows"]) and len(d["rows_actuated"]) == 7
@@ -146,5 +146,48 @@ def test_h4_confirmed(tmp_path):
 
 def test_h4_partially_confirmed_when_advantage_persists(tmp_path):
     _h4_tree(tmp_path, late_ratios=[3.0, 3.0, 3.0])
-    h4 = write_verdicts(tmp_path)[2]
+    h4 = write_verdicts(tmp_path)[3]
     assert (h4.envs[0].detail["part_b"], h4.status) == ("fails", "partially confirmed")
+
+
+def _mbrl(root, env, model, seed, successes):
+    d = root / f"mbrl-{env}-{model}-pixels-s{seed}"
+    d.mkdir(parents=True)
+    recs = [{"checkpoint": c, "env_steps": c, "success_rate": s} for c, s in zip(T.H3_CHECKPOINTS, successes)]
+    (d / "mbrl.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs))
+
+
+def test_n80_rules():
+    from hwm.eval.hypotheses import n80
+
+    recs = [{"checkpoint": c, "success_rate": s} for c, s in zip(T.H3_CHECKPOINTS, [0, 0.5, 0.8])]
+    assert n80(recs) == 5000
+    assert n80(recs[:2]) is None  # still running
+    assert n80([{"checkpoint": c, "success_rate": 0.1} for c in T.H3_CHECKPOINTS]) == math.inf
+
+
+@pytest.mark.parametrize(
+    "e_succ,r_succ,expected",
+    [
+        ([0, 0.9], [0, 0, 0, 0.9], "supported"),  # 2k vs 10k
+        ([0, 0, 0.9], [0, 0, 0, 0.9], "supported"),  # 5k vs 10k: exactly 0.5, the rule is <=
+        ([0, 0, 0, 0.9], [0, 0, 0, 0.9], "not supported"),  # equal
+        ([0] * 6, [0] * 6, "not supported"),  # neither learns: inf vs inf fails
+        ([0, 0, 0, 0, 0.8], [0] * 6, "supported"),  # finite vs inf passes
+    ],
+)
+def test_h3_rule(tmp_path, e_succ, r_succ, expected):
+    for env in T.H3_ENVS:
+        for s in T.SEEDS:
+            _mbrl(tmp_path, env, "hamiltonian_ens", s, e_succ)
+            _mbrl(tmp_path, env, "rssm", s, r_succ)
+    assert write_verdicts(tmp_path)[2].status == expected
+
+
+def test_h3_incomplete_while_running(tmp_path):
+    for env in T.H3_ENVS:
+        for s in T.SEEDS:
+            _mbrl(tmp_path, env, "hamiltonian_ens", s, [0, 0.9])
+            _mbrl(tmp_path, env, "rssm", s, [0, 0])
+    h3 = write_verdicts(tmp_path)[2]
+    assert h3.status == "incomplete" and all(e.status == "incomplete" for e in h3.envs)

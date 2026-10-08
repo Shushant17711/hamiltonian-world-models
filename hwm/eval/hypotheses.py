@@ -1,4 +1,4 @@
-"""Mechanical H1/H2/H4 verdicts from evaluated runs (Req 7.5, 9.1; PREREGISTRATION.md §5).
+"""Mechanical H1-H4 verdicts from evaluated runs (Req 7.5, 8.5, 9.1; PREREGISTRATION.md §5).
 
 Reads every ``<results>/**/eval/metrics.json``, keeps the pre-registered seeds, applies the rules in
 ``hwm.eval.thresholds`` and writes ``verdicts.md`` (and ``verdicts.json``). Nothing here is tunable:
@@ -216,6 +216,63 @@ def evaluate_h4(idx, lyap: dict | None) -> Verdict:
     return Verdict("H4", status, [EnvResult(T.H4_ENV, status, detail)], rule)
 
 
+# --- H3 -------------------------------------------------------------------------------------------------
+H3_MODELS = {"E-ens": "hamiltonian_ens", "RSSM": "rssm"}
+
+
+def load_mbrl(results: str | Path) -> dict[str, list[dict]]:
+    """run name -> mbrl.jsonl records, for every ``mbrl-*`` run directory."""
+    out = {}
+    for p in sorted(Path(results).glob("mbrl-*/mbrl.jsonl")):
+        out[p.parent.name] = [json.loads(x) for x in p.read_text().splitlines() if x.strip()]
+    return out
+
+
+def n80(records: list[dict]) -> float | None:
+    """Env steps (checkpoint label) to the first >= threshold success, inf if never within the budget,
+    None while undetermined (the run has neither succeeded nor evaluated every checkpoint)."""
+    done = set()
+    for r in sorted(records, key=lambda r: r["checkpoint"]):
+        if r["success_rate"] >= T.H3_SUCCESS_THRESHOLD:
+            return float(r["checkpoint"])
+        done.add(r["checkpoint"])
+    return math.inf if set(T.H3_CHECKPOINTS) <= done else None
+
+
+def _median(v: list[float]) -> float:
+    v = sorted(v)
+    return v[len(v) // 2] if len(v) % 2 else 0.5 * (v[len(v) // 2 - 1] + v[len(v) // 2])
+
+
+def evaluate_h3(runs: dict[str, list[dict]]) -> Verdict:
+    rule = (
+        f"per task (pixel mode): median over seeds of N80 = env steps to the first checkpoint with success >= "
+        f"{T.H3_SUCCESS_THRESHOLD:.0%} ({T.H3_EVAL_EPISODES} MPC episodes; inf if never within "
+        f"{max(T.H3_CHECKPOINTS):,}); pass if N80(E-ens) <= {T.H3_MAX_RATIO:g} x N80(RSSM) (finite <= inf passes, "
+        f"inf vs inf fails); supported if >= {T.H3_MIN_ENVS_PASSING} of {len(T.H3_ENVS)} tasks pass"
+    )
+    envs = []
+    for env in T.H3_ENVS:
+        vals, missing = {}, []
+        for label, name in H3_MODELS.items():
+            per_seed = []
+            for s in T.SEEDS:
+                rid = f"mbrl-{env}-{name}-{T.H3_OBS_MODE}-s{s}"
+                v = n80(runs.get(rid, []))
+                if v is None:
+                    missing.append(rid)
+                else:
+                    per_seed.append(v)
+            vals[label] = per_seed
+        if missing:
+            envs.append(EnvResult(env, "incomplete", {"n80": vals}, missing))
+            continue
+        e, r = _median(vals["E-ens"]), _median(vals["RSSM"])
+        ok = math.isfinite(e) and (math.isinf(r) or e <= T.H3_MAX_RATIO * r)
+        envs.append(EnvResult(env, "pass" if ok else "fail", {"n80": vals, "median_E": e, "median_RSSM": r}))
+    return _decide("H3", envs, T.H3_MIN_ENVS_PASSING, rule)
+
+
 # --- report ------------------------------------------------------------------------------------------
 def _fmt(x: float) -> str:
     if math.isinf(x):
@@ -270,6 +327,20 @@ def render(verdicts: list[Verdict], exploratory: list[str]) -> str:
             )
         elif v.hypothesis == "H4":
             lines += _render_h4(v)
+        elif v.hypothesis == "H3":
+            lines += [
+                "| task | N80 E-ens per seed | N80 RSSM per seed | median E-ens / RSSM | result |",
+                "|---|---|---|---|---|",
+            ]
+            for e in v.envs:
+                d = e.detail
+                if e.status == "incomplete":
+                    lines.append(f"| {e.env} | | | | incomplete (missing {len(e.missing)} runs) |")
+                    continue
+                lines.append(
+                    f"| {e.env} | {_seeds(d['n80']['E-ens'])} | {_seeds(d['n80']['RSSM'])} | "
+                    f"{_fmt(d['median_E'])} / {_fmt(d['median_RSSM'])} | {e.status} |"
+                )
         else:
             head = " | ".join(f"{x} − E{' (privileged)' if x in PRIVILEGED else ''}" for x in T.H2_BASELINES)
             lines += [
@@ -375,7 +446,7 @@ def write_verdicts(results: str | Path, out: str | Path | None = None) -> list[V
     idx = index(m for m in metrics if int(m["seed"]) in T.SEEDS)
     lyap_path = results / f"lyapunov_{T.H4_ENV}.json"
     lyap = json.loads(lyap_path.read_text()) if lyap_path.exists() else None
-    verdicts = [evaluate_h1(idx), evaluate_h2(idx), evaluate_h4(idx, lyap)]
+    verdicts = [evaluate_h1(idx), evaluate_h2(idx), evaluate_h3(load_mbrl(results)), evaluate_h4(idx, lyap)]
     out = Path(out) if out else results / "verdicts.md"
     out.write_text(render(verdicts, exploratory))
     out.with_suffix(".json").write_text(json.dumps([_jsonable(v) for v in verdicts], indent=1, default=str))

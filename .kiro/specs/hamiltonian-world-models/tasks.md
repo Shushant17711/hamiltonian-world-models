@@ -165,7 +165,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: perfectly correlated synthetic data gives ρ = 1, shuffled gives |ρ| < 0.1
   - _Requirements: 8.4_
 
-- [ ] 12. Extend the hypothesis evaluator to H3
+- [x] 12. Extend the hypothesis evaluator to H3
   - Steps-to-80%-success per run (∞ if never reached), E-ens/RSSM ratio per task, threshold from `thresholds.py`, appended to `verdicts.md`
   - Tests on synthetic `mbrl.jsonl` trees
   - _Requirements: 8.5_
