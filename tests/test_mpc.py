@@ -99,7 +99,7 @@ def test_disagreement_penalty_steers_plans_away_from_disagreement():
             generator=torch.Generator().manual_seed(0),
         )
         seq, _ = mpc.cem.plan(lambda a, m=mpc: m.score(ens.encode(ctx), a)[0])
-        _, R, D = mpc.score(ens.encode(ctx), seq[None])
+        _, _, D = mpc.score(ens.encode(ctx), seq[None])
         chosen[beta] = (seq.sum().item(), D.item())
     assert chosen[0.0][0] > 2.0  # without the penalty the plan moves right, where members disagree
     assert chosen[5.0][1] < 0.1 * chosen[0.0][1]  # beta > 0 picks a plan with far less disagreement

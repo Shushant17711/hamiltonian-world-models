@@ -189,6 +189,9 @@ if `ckpt.pt` exists (Req 6.2). Seeds cover torch, numpy and python.
   warm-started by shifting the previous plan. Cost = −Σ r̂_t + β Σ disagreement_t (β = 1.0 by
   default; β = 0 for single models). State mode: r̂ = env.reward(decoded obs, u). Pixel mode: the
   learned reward head (ensemble: member mean). All candidates run as one batched rollout on the GPU.
+  Disagreement: state mode as in §4 (std over members of the decoded state); pixel mode uses the
+  std over members of the predicted reward, since decoding 64×64 frames for every candidate
+  (5 × 400 × 30 per CEM iteration) is unaffordable.
 - **Model-based RL loop (8.3):** 5 random-action episodes to start; then repeat {train / fine-tune
   2k steps on all data → collect 1 MPC episode}. Evaluate 10 MPC episodes when the cumulative env
   steps reach {1k, 2k, 5k, 10k, 20k, 50k}. Log `(env_steps, success_rate, mean_return)` to

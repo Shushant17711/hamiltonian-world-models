@@ -150,7 +150,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: finds the optimum of a known quadratic action cost; warm start shifts correctly
   - _Requirements: 8.1_
 
-- [ ] 11.2 Implement MPC over world models with a disagreement penalty
+- [x] 11.2 Implement MPC over world models with a disagreement penalty
   - `hwm/planning/mpc.py`: encode context, roll out all candidates in one batch, reward from env (state) or head (pixels), `β·disagreement` for ensembles
   - Tests: with an oracle simulator model, MPC swings the pendulum up (success in 1 episode); β > 0 lowers the chosen plan's disagreement on a toy ensemble
   - _Requirements: 8.1, 8.2_
