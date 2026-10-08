@@ -58,7 +58,8 @@ semi-major axis a from the band, eccentricity e ~ U(0, 0.3), random phase and or
 | acrobot | [0.05, 0.40] | [0.50, 0.80] |
 | orbit (a) | [0.8, 1.2] | [1.4, 1.8] |
 
-Cart-pole: the cart-velocity share of the kinetic energy is capped at 20%, and trajectories whose
+Cart-pole: initial states have zero horizontal momentum p_x (conserved when u = 0, so passive
+rollouts stay on the track; the cart's kinetic-energy share is then far below the 20% cap), and trajectories whose
 |x| exceeds 3.0 are rejected and resampled (the fixed camera covers |x| ≤ 3.2).
 
 **Tasks (Req 1.4).** Each env defines `reward(obs, u)` (dense, shaped) and `success(episode_obs)`.
@@ -79,6 +80,8 @@ resolved data config). Arrays: `obs (N, T+1, d_obs)`, `qp (N, T+1, 2n)`, `act (N
 
 - Actions: Ornstein–Uhlenbeck, θ = 0.15, σ = 0.3·u_max, clipped. 25% of trajectories are
   **passive** (u = 0), which gives Model C its energy-penalty data and gives every model the same data.
+  Cart-pole adds a PD centring term (kp = kd = 3) on the cart position to the OU force, since pure
+  OU forces drive ~90% of 200-step rollouts off the track; the applied, clipped actions are stored.
 - Sizes: train 1000 × 200 steps, val 100 × 200, test_in / test_ood 200 × 200, test_long
   50 passive × 1000 steps per band. The 10k-step drift test needs only initial states.
 - Images are **not stored**. `hwm.envs.render` is a vectorised torch SDF rasteriser (anti-aliased

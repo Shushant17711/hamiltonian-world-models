@@ -45,8 +45,11 @@ class CartPole(MechanicalEnv):
         return np.stack([rng.uniform(-1.5, 1.5, N), rng.uniform(-np.pi, np.pi, N)], -1)
 
     def _sample_momentum_direction(self, rng, q):
+        # zero horizontal momentum p_x = (M v)_0: conserved without force, so passive rollouts
+        # keep the cart within m_p l / (m_c + m_p) of its start instead of drifting off the track
         v = rng.standard_normal(q.shape)
-        v[:, 0] *= 0.3
+        M = self.M(q)
+        v[:, 0] = -M[:, 0, 1] / M[:, 0, 0] * v[:, 1]
         T = 0.5 * (v * (self.M(q) @ v[..., None])[..., 0]).sum(-1)
         T_cart = 0.5 * (self.m_c + self.m_p) * v[:, 0] ** 2
         p = (self.M(q) @ v[..., None])[..., 0]

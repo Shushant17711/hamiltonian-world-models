@@ -34,3 +34,14 @@ def test_acrobot_torque_only_at_elbow_and_tip_height():
     after = env.step(np.zeros((1, 4)), np.array([[env.u_max]]))
     v = env.qp_to_obs(after)[0, 2:]
     assert v[1] > 0 and abs(v[1]) > abs(v[0])
+
+
+def test_cartpole_band_states_have_zero_horizontal_momentum_and_passive_stays_put():
+    env = make("cartpole")
+    qp = env.sample_band(np.random.default_rng(1), (0.7, 0.95), 64)
+    np.testing.assert_allclose(qp[:, 2], 0.0, atol=1e-12)
+    x0 = qp[:, 0].copy()
+    for _ in range(400):
+        qp = env.step(qp)
+    bound = env.m_p * env.l / (env.m_c + env.m_p) * 2 + 1e-6
+    assert np.abs(qp[:, 0] - x0).max() <= bound

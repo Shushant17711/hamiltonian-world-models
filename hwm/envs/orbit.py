@@ -67,6 +67,12 @@ class Orbit(MechanicalEnv):
         )
         return np.concatenate([rot(pos), rot(vel)], -1)
 
+    r_min, r_max = 0.3, 2.4  # trajectories leaving this annulus are rejected (camera half-width 2.5)
+
+    def valid_state(self, qp):
+        r = np.linalg.norm(np.asarray(qp)[..., :2], axis=-1)
+        return (r > self.r_min) & (r < self.r_max)
+
     def elements(self, qp):
         """(a, e, angular momentum) of each state, for tests and task checks."""
         q, p = qp[..., :2], qp[..., 2:]

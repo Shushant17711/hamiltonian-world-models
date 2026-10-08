@@ -51,7 +51,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - _Requirements: 3.2_
 
 - [ ] 3. Generate data and feed it to models
-- [ ] 3.1 Implement dataset generation with energy bands and OU actions
+- [x] 3.1 Implement dataset generation with energy bands and OU actions
   - `hwm/data/generate.py`: OU actions, 25% passive, splits train/val/test_in/test_ood/test_long per design §3, `.npz` under `data/<env>/<hash>/`
   - `configs/data/{pendulum,cartpole,acrobot,orbit}.yaml`; `scripts/gen_data.py` skips work when the hash dir exists
   - Tests: tiny config generates every split with the right shapes, energies of OOD initial states outside the train band, same hash → identical files
