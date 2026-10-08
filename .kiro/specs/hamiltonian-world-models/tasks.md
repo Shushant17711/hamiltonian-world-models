@@ -145,7 +145,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - _Requirements: 4.4, 3.3_
 
 - [ ] 11. Implement planning
-- [ ] 11.1 Implement the CEM planner
+- [x] 11.1 Implement the CEM planner
   - `hwm/planning/cem.py`: batched CEM with warm-start shift, momentum, action bounds; cost callback interface
   - Tests: finds the optimum of a known quadratic action cost; warm start shifts correctly
   - _Requirements: 8.1_
@@ -160,7 +160,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: 2-iteration smoke run with a tiny model writes well-formed records and appends data correctly
   - _Requirements: 8.3_
 
-- [ ] 11.4 Implement ensemble calibration analysis
+- [x] 11.4 Implement ensemble calibration analysis
   - `hwm/eval/calibration.py`: Spearman ρ of disagreement vs true error per horizon, 10-bin reliability curve; hook into `scripts/evaluate.py` for ensemble runs
   - Tests: perfectly correlated synthetic data gives ρ = 1, shuffled gives |ρ| < 0.1
   - _Requirements: 8.4_

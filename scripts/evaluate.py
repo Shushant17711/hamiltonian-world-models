@@ -8,6 +8,8 @@ Writes ``<run>/eval/metrics.json`` (design §7, Req 7.1-7.3) with, for the best 
 * ``drift[band]``: true-energy drift over DRIFT_STEPS passive steps from the first DRIFT_INITIAL_STATES
   long-trajectory initial states of each band (``test_in`` = train band, ``test_ood``), plus
   ``learned_drift[band]`` for models with an energy head.
+* ``calibration[split]`` for ensembles: Spearman rho of disagreement vs error per horizon and a
+  10-bin reliability curve (``hwm.eval.calibration``).
 """
 
 from __future__ import annotations
@@ -23,9 +25,12 @@ from hwm.data.dataset import Normaliser
 from hwm.data.generate import generate, load_split
 from hwm.envs import make
 from hwm.eval import thresholds as T
+from hwm.eval.calibration import calibration
 from hwm.eval.energy import energy_drift
 from hwm.eval.rollout import feature_var, rollout_nmse
 from hwm.train.trainer import load_trained
+
+CALIBRATION_HORIZONS = (1, 5, 10, 20, 50, 100)
 
 
 def _subset(d: dict[str, np.ndarray], mask: np.ndarray) -> dict[str, np.ndarray]:
@@ -70,6 +75,11 @@ def evaluate_run(run_dir: str | Path, device: str = "auto", drift_steps: int = T
         r = energy_drift(model, norm, env, x0, steps=drift_steps)
         out["drift"][band] = r["true"]
         out["learned_drift"][band] = r["learned"]
+    if hasattr(model, "members"):  # ensembles: calibration of disagreement vs error (Req 8.4)
+        out["calibration"] = {
+            name: calibration(model, norm, env, splits[name], CALIBRATION_HORIZONS)
+            for name in ("test_in", "test_ood")
+        }
     out["eval_sec"] = round(time.perf_counter() - t0, 1)
     (run_dir / "eval").mkdir(exist_ok=True)
     (run_dir / "eval" / "metrics.json").write_text(json.dumps(out, indent=1))

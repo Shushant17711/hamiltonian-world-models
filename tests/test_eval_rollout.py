@@ -105,7 +105,7 @@ def test_learned_energy_drift_reported_for_latent_ode():
     assert np.isfinite(d["true"]["median"])
 
 
-@pytest.mark.parametrize("model", ["mlp", "rssm"])
+@pytest.mark.parametrize("model", ["mlp", "rssm", "ensemble"])
 def test_evaluate_cli_writes_metrics(tmp_path, model):
     from tests.test_data_generate import TINY
 
@@ -113,7 +113,9 @@ def test_evaluate_cli_writes_metrics(tmp_path, model):
     over += [
         f"data.{o}" for o in TINY + ["sizes.train=[16,30]", "sizes.val=[8,30]", "sizes.test_long=[4,120]"]
     ]
-    over += ["train.steps=20"]
+    over += ["train.steps=20", "train.device=cpu"]
+    if model == "ensemble":  # 2 small E members (compile is CUDA-only, so this stays eager)
+        over += ["model.members=2", "model.member.hidden=16", "model.member.h_hidden=16"]
     cfg = f"configs/model/{model}.yaml"
     subprocess.run(
         [sys.executable, "scripts/train.py", "--config", cfg, *over],
@@ -121,7 +123,8 @@ def test_evaluate_cli_writes_metrics(tmp_path, model):
         check=True,
         capture_output=True,
     )
-    run = tmp_path / "res" / f"pendulum-{model}-state-s0"
+    name = "hamiltonian_ens" if model == "ensemble" else model
+    run = tmp_path / "res" / f"pendulum-{name}-state-s0"
     r = subprocess.run(
         [sys.executable, "scripts/evaluate.py", str(run), "--drift-steps", "30", "--device", "cpu"],
         cwd=ROOT,
@@ -134,4 +137,11 @@ def test_evaluate_cli_writes_metrics(tmp_path, model):
     assert set(m["nmse"]) == {"test_in", "test_ood", "test_long", "test_long_ood"}
     assert set(m["nmse"]["test_long"]) == {"10", "100"} and set(m["nmse"]["test_in"]) == {"10"}
     assert m["drift"]["test_in"]["n"] == 4 and m["drift_steps"] == 30
-    assert m["model"] == model and m["learned_drift"]["test_in"] is None
+    assert m["model"] == model
+    if model == "ensemble":
+        assert m["learned_drift"]["test_in"]["n"] == 4  # E members have a learned energy
+        cal = m["calibration"]["test_in"]
+        assert cal["horizons"] == [1, 5, 10] and len(cal["reliability"]["rmse"]) == 10
+        assert -1 <= cal["spearman_pooled"] <= 1
+    else:
+        assert m["learned_drift"]["test_in"] is None and "calibration" not in m
