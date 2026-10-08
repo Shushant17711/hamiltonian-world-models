@@ -40,7 +40,8 @@ m₁ = m₂ = 1, l₁ = l₂ = 1, g = 9.81. Optional linear damping `−D q̇` a
 **Ground-truth integrator (Req 1.3).** Each env implements `dH(q, p) -> (∂H/∂q, ∂H/∂p)` analytically
 (checked against finite differences in tests). The full vector field
 `q̇ = ∂H/∂p, ṗ = −∂H/∂q + B u − D ∂H/∂p` is integrated with 2-stage Gauss–Legendre (order 4,
-symplectic for u = D = 0), with 10 substeps per dt, solving the stage equations by fixed-point
+symplectic for u = D = 0), with per-env substeps chosen so the 10k-step drift is ≥ 100× below the
+Req 1.3 threshold (pendulum: 4; error scales as h⁴), solving the stage equations by fixed-point
 iteration to tol 1e-13 (max 50 iterations). Integration is vectorised over a batch of trajectories
 in numpy float64. One integrator for all four systems keeps the guarantee uniform.
 

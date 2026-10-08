@@ -14,7 +14,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
 
 ## Task list
 
-- [ ] 1. Scaffold the uv package, config system and test harness
+- [x] 1. Scaffold the uv package, config system and test harness
   - `pyproject.toml` (uv, package `hwm`, deps torch/numpy/scipy/pyyaml/matplotlib, dev pytest/ruff),
     `license = "MIT"`, MIT `LICENSE` (Shushant Kumar Choudhary), README stub with License section, `.gitignore` (data/, results/* except verdicts/figures)
   - `hwm/config.py`: YAML → nested frozen dataclasses, `a.b=c` CLI overrides, `config_hash()`
