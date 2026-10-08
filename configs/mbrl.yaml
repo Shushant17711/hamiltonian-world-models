@@ -1,0 +1,17 @@
+# Model-based RL protocol for H3 (design §8; PREREGISTRATION.md §5 H3). Merged under `mbrl:` into the
+# model's run config by scripts/run_mbrl.py.
+random_episodes: 5
+train_steps_per_iter: 2000
+train_horizons: [4, 8, 16, 32]
+batch: 128
+lr: 3.0e-4
+grad_clip: 10.0
+eval_at: [1000, 2000, 5000, 10000, 20000, 50000]
+eval_episodes: 10
+max_env_steps: 50000
+success_threshold: 0.8
+stop_at_success: true
+beta: 1.0
+ou_theta: 0.15
+ou_sigma: 0.3
+cem: {horizon: 30, population: 400, elites: 40, iterations: 5, momentum: 0.1}

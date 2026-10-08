@@ -155,7 +155,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: with an oracle simulator model, MPC swings the pendulum up (success in 1 episode); β > 0 lowers the chosen plan's disagreement on a toy ensemble
   - _Requirements: 8.1, 8.2_
 
-- [ ] 11.3 Implement the model-based RL loop
+- [x] 11.3 Implement the model-based RL loop
   - `hwm/planning/mbrl.py` + `scripts/run_mbrl.py`: random warm-up, train/fine-tune → collect, eval at env-step budgets {1k, 2k, 5k, 10k, 20k, 50k}, `mbrl.jsonl`
   - Tests: 2-iteration smoke run with a tiny model writes well-formed records and appends data correctly
   - _Requirements: 8.3_

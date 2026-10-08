@@ -108,3 +108,20 @@ def test_disagreement_penalty_steers_plans_away_from_disagreement():
 from hwm.models.registry import register
 
 register("_toy")(_Toy)
+
+
+def test_batched_mpc_runs_episodes_in_lockstep():
+    env = make("pendulum")
+    norm = Normaliser(np.zeros(2), np.ones(2))
+    mpc = MPC(
+        TorchPendulum(env),
+        env,
+        norm,
+        CEMConfig(horizon=10, population=50, elites=5),
+        beta=0.0,
+        generator=torch.Generator().manual_seed(0),
+        n=4,
+    )
+    ctx = torch.tensor([[0.0, 0.0], [0.5, 0.0], [3.1, 0.0], [0.0, 2.0]])[:, None]
+    a, _ = mpc.act(ctx)
+    assert a.shape == (4, 1) and a.abs().max() <= 1.0

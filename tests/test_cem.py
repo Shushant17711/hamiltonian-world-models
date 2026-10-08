@@ -62,3 +62,23 @@ def test_nonfinite_costs_are_never_elites():
 def test_bad_config():
     with pytest.raises(ValueError):
         CEM(1, CEMConfig(population=10, elites=20))
+
+
+def test_batched_problems_are_independent():
+    targets = torch.tensor([-0.5, 0.0, 0.7])[:, None, None]  # 3 problems with different optima
+    cem = CEM(
+        1,
+        CEMConfig(horizon=4, population=300, elites=30, iterations=6),
+        generator=torch.Generator().manual_seed(3),
+        n=3,
+    )
+
+    def cost(a):  # a: (3 * P, T, 1), problem-major
+        a = a.reshape(3, -1, 4, 1)
+        return ((a - targets[:, None]) ** 2).sum((2, 3)).reshape(-1)
+
+    seq, _ = cem.plan(cost)
+    assert seq.shape == (3, 4, 1)
+    torch.testing.assert_close(seq.mean((1, 2)), targets.reshape(3), atol=0.08, rtol=0)
+    a, _ = cem.act(cost)
+    assert a.shape == (3, 1)

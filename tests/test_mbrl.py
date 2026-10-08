@@ -1,0 +1,78 @@
+"""Model-based RL loop (Req 8.3): a 2-iteration smoke run with tiny models."""
+
+import json
+
+import numpy as np
+import pytest
+
+from hwm.planning.mbrl import MBRL, mbrl_run_id
+from scripts.run_mbrl import build_mbrl_config
+from tests.test_trainer import ROOT
+
+TINY = [
+    "mbrl.random_episodes=2",
+    "mbrl.train_steps_per_iter=5",
+    "mbrl.batch=8",
+    "mbrl.eval_at=[100,250]",
+    "mbrl.eval_episodes=3",
+    "mbrl.max_env_steps=250",
+    "mbrl.stop_at_success=false",
+    "mbrl.cem={horizon: 4, population: 16, elites: 4, iterations: 2, momentum: 0.1}",
+    "train.device=cpu",
+]
+
+
+def _cfg(model, *extra):
+    return build_mbrl_config(str(ROOT / f"configs/model/{model}.yaml"), TINY + list(extra))
+
+
+@pytest.mark.parametrize(
+    "model,extra",
+    [
+        ("mlp", ["model.hidden=16", "model.layers=1"]),
+        (
+            "ensemble",
+            ["model.members=2", "model.member.name=mlp", "model.member.hidden=16", "model.member.layers=1"],
+        ),
+        ("rssm_pixels", ["model.embed=16", "model.hidden=16", "model.deter=16", "model.stoch=4"]),
+    ],
+)
+def test_two_iteration_smoke_run(tmp_path, model, extra):
+    cfg = _cfg(model, *extra)
+    run = tmp_path / mbrl_run_id(cfg)
+    out = MBRL(cfg, run).run(max_iterations=2)
+    T = 200  # pendulum episode length
+    # 2 random episodes (400 steps) -> eval at 100 and 250 -> all checkpoints done -> stop
+    assert out["evaluated"] == [100, 250] and out["done"]
+    recs = [json.loads(x) for x in (run / "mbrl.jsonl").read_text().splitlines()]
+    assert [r["checkpoint"] for r in recs] == [100, 250]
+    assert all(0 <= r["success_rate"] <= 1 and len(r["returns"]) == 3 for r in recs)
+    with np.load(run / "buffer" / "train.npz") as z:
+        assert z["obs"].shape == (2, T + 1, 2) and z["act"].shape == (2, T, 1)
+        assert np.abs(z["act"]).max() <= 2.0
+
+
+def test_collects_mpc_episodes_and_resumes(tmp_path):
+    over = ["model.hidden=16", "model.layers=1", "mbrl.eval_at=[1000]", "mbrl.max_env_steps=1000"]
+    cfg = _cfg("mlp", *over)
+    run = tmp_path / "r"
+    m = MBRL(cfg, run)
+    m.run(max_iterations=1)  # 2 random + 1 MPC episode
+    assert m.env_steps == 600 and m.grad_steps == 5
+    with np.load(run / "buffer" / "train.npz") as z:
+        first = z["obs"].copy()
+    assert first.shape[0] == 3
+    m2 = MBRL(cfg, run)
+    m2.run(max_iterations=1)  # resumes: one more iteration, appends one episode
+    assert m2.env_steps == 800 and m2.grad_steps == 10 and m2.iteration == 2
+    with np.load(run / "buffer" / "train.npz") as z:
+        np.testing.assert_array_equal(z["obs"][:3], first)  # earlier data untouched
+        assert z["obs"].shape[0] == 4
+    train = [json.loads(x) for x in (run / "train.jsonl").read_text().splitlines()]
+    assert [t["horizon"] for t in train] == [4, 8]  # horizon schedule advances per iteration
+
+
+def test_config_merge_and_run_id():
+    cfg = _cfg("ensemble", "obs_mode=pixels", "env=cartpole", "mbrl.cem.population=200")
+    assert mbrl_run_id(cfg) == "mbrl-cartpole-hamiltonian_ens-pixels-s0"
+    assert cfg.mbrl.cem.population == 200 and cfg.mbrl.cem.horizon == 4 and cfg.mbrl.beta == 1.0

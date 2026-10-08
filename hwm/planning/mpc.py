@@ -32,11 +32,13 @@ class MPC:
         cem: CEMConfig | None = None,
         beta: float = 1.0,
         generator: torch.Generator | None = None,
+        n: int | None = None,
     ):
         self.model, self.env, self.normaliser, self.beta = model, env, normaliser, beta
         p = next(model.parameters())
         self.device, self.dtype = p.device, p.dtype
-        self.cem = CEM(env.d_u, cem, device=self.device, generator=generator)
+        self.cem = CEM(env.d_u, cem, device=self.device, generator=generator, n=n)
+        self.n = n
         self.is_ens = hasattr(model, "members")
         if model.obs_mode == "state" and normaliser is None:
             raise ValueError("state-mode MPC needs the normaliser to evaluate the env reward")
@@ -50,10 +52,11 @@ class MPC:
         return self.env.reward(x, a * self.env.u_max)
 
     def score(self, z0: Tensor, actions: Tensor) -> tuple[Tensor, Tensor, Tensor]:
-        """(cost, total reward, total disagreement) of candidates ``actions`` (P, T, d_u) from z0 (1, d_z)."""
+        """(cost, total reward, total disagreement) of candidates ``actions`` (n * P, T, d_u), problem-major,
+        from the latents z0 (n, d_z) of n independent problems."""
         m = self.model
         P, T = actions.shape[:2]
-        z = z0.expand(P, -1)
+        z = z0.repeat_interleave(P // z0.shape[0], dim=0)
         R = torch.zeros(P, device=self.device, dtype=self.dtype)
         D = torch.zeros_like(R)
         for t in range(T):
@@ -78,7 +81,8 @@ class MPC:
 
     @torch.no_grad()
     def act(self, ctx: Tensor) -> tuple[Tensor, dict[str, float]]:
-        """First action (d_u,) in [-1, 1] for the context ``ctx`` (1, k, *obs) in the model's input space."""
+        """First action in [-1, 1] for the context ``ctx`` (n, k, *obs) in the model's input space:
+        (d_u,) when unbatched (n = 1), else (n, d_u)."""
         was_training = self.model.training
         self.model.eval()
         z0 = self.model.encode(ctx.to(self.device, self.dtype))
