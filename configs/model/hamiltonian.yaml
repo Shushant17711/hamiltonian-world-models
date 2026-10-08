@@ -12,7 +12,10 @@ model:
   h_layers: 2
   eps: 1.0e-3           # A = L L^T + eps I
   midpoint_iters: 6
+  midpoint_tol: 1.0e-4  # adaptive substeps where the fixed-point iteration has not converged (amendment 1)
+  midpoint_max_depth: 3
   dissipation: true     # R = K K^T
   compile: true         # torch.compile the step on CUDA (eager on CPU)
   lambda_ae: 1.0
-  lambda_lat: 0.1
+  lambda_lat: 0.0       # latent-consistency term off: it diverges on chaotic systems (amendment 1)
+  lambda_z: 1.0e-3      # L2 prior on the encoded latent: pins the (q, p) scale gauge (amendment 1)

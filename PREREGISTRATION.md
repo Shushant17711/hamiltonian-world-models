@@ -199,4 +199,28 @@ H4:
 
 ## Amendments
 
-None.
+### Amendment 1 — 2026-10-09: numerical stability fixes to model E (before any verdict)
+
+*What happened.* The first state-mode sweep trained model E with the configuration frozen in §2. E
+trained cleanly on the pendulum but its training diverged to NaN on the acrobot (step ~5k), orbit (~6.5k)
+and cart-pole (~7.5k). No baseline diverged. Those four E runs (seed 0) are kept, unchanged, in
+`results/_diverged_v1/`. No H1/H2/H4 statistic had been computed when this was found.
+
+*Diagnosis* (diagnostic training runs on the train/val splits only): (1) the latent (q, p) of a learned
+Hamiltonian has a scale gauge (p → c p, H → c H(q, p/c) give the same flow) that nothing pinned, so the
+encoder's scale drifted until float32 and the εI term broke; (2) the implicit-midpoint equations were
+solved by plain fixed-point iteration, which diverges where the learned H is stiff (orbit: the residual
+jumped from 1e-4 to 1.4 a few steps before the blow-up); (3) on the chaotic acrobot the auxiliary
+latent-consistency term λ_lat‖z_k − sg(enc(o_k))‖² grew without bound once the horizon reached 8.
+
+*Changes* (model E and E-ens only; applied identically on every system; A–D untouched):
+1. an L2 prior λ_z‖enc(o)‖² with λ_z = 1e-3 on the encoded latent, which pins the scale gauge;
+2. adaptive substeps: a sample whose fixed-point iteration has not converged to 1e-4 is re-integrated as
+   two half-steps, recursively up to 8 substeps. A composition of implicit-midpoint steps is symplectic and
+   converged samples are untouched, so the structural guarantee is unchanged;
+3. λ_lat = 0 (the latent-consistency term is dropped; the rollout and auto-encoding terms remain);
+4. the shared trainer skips any update with a non-finite loss or gradient (it never triggered for A–D).
+
+*Cost to the comparison.* E received four diagnostic configurations on the validation split; the
+baselines received none (they trained stably with the defaults). That asymmetry favours E and is listed
+in LIMITATIONS.md. The thresholds, metrics, splits, seeds and decision rules of §4–§5 are unchanged.

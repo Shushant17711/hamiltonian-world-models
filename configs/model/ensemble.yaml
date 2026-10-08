@@ -15,7 +15,10 @@ model:
     h_layers: 2
     eps: 1.0e-3
     midpoint_iters: 6
+    midpoint_tol: 1.0e-4
+    midpoint_max_depth: 3
     dissipation: true
     compile: true
     lambda_ae: 1.0
-    lambda_lat: 0.1
+    lambda_lat: 0.0
+    lambda_z: 1.0e-3

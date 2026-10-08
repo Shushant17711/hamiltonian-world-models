@@ -197,7 +197,12 @@ class Trainer:
             self.opt.zero_grad(set_to_none=True)
             logs = self.model.backward(batch, H)
             gn = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.tc.grad_clip)
-            self.opt.step()
+            if math.isfinite(logs.get("loss", 0.0)) and torch.isfinite(gn):
+                self.opt.step()
+            else:  # never apply a non-finite update; the step still counts so the schedule is unchanged
+                sums["skipped"] += 1.0
+                self.opt.zero_grad(set_to_none=True)
+                logs = {}
             self.sched.step()
             self.step += 1
             for k, v in logs.items():

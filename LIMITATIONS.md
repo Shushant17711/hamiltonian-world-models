@@ -15,7 +15,10 @@ to `results/verdicts.md`.
   from the symplectic structure itself. The n_lat = 2n ablation (exploratory) is the first check on that.
 - **E is torch.compile'd on CUDA; the other models are not.** This changes speed only, not the maths,
   and it is why E's training is affordable. Wall-clock numbers are not comparable across models.
-- **Hyperparameters were not tuned for any model.** All models use the shared trainer defaults of
+- **Model E received stability fixes after its first runs diverged** (PREREGISTRATION.md, amendment 1):
+  four diagnostic configurations on the validation split, chosen to make training stable on all four
+  systems. The baselines trained stably with the defaults and received none. This favours E.
+- **Hyperparameters were not otherwise tuned for any model.** All models use the shared trainer defaults of
   design §6 (PREREGISTRATION.md §2). A baseline with a better learning rate or width might do better.
 
 ## What the metrics measure

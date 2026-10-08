@@ -1,0 +1,6 @@
+# Phases 2-3 baselines only (A-D); model E runs separately after its stability fix (see
+# PREREGISTRATION.md Amendments). Same run ids as configs/sweeps/state.yaml.
+envs: [pendulum, cartpole, acrobot, orbit]
+models: [mlp, pinn, latent_ode, rssm]
+seeds: [0, 1, 2]
+overrides: []

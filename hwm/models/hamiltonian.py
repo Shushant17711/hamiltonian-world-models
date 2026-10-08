@@ -20,7 +20,7 @@ fixed-point tolerance), which is what bounds the learned energy over long rollou
 
 Loss (design §5): the shared open-loop rollout loss (sum_k ||dec(z_k) - o_k||^2 + reconstruction of
 the context) + lambda_ae ||dec(enc(o_k)) - o_k||^2 + lambda_lat ||z_k - sg(enc(o_k))||^2 over the
-window's targets. Pixel mode (task 10.1): a CNN encoder on 3 frames, an image decoder that sees q only,
+window's targets, + lambda_z ||enc(o_k)||^2 (a weak prior that pins the latent scale gauge). Pixel mode (task 10.1): a CNN encoder on 3 frames, an image decoder that sees q only,
 and a reward head r(q, p, u) for planning; bf16 autocast is applied around the CNNs only, the
 integrator runs in fp32.
 """
@@ -31,7 +31,7 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 
-from hwm.integrators.torch_integrators import implicit_midpoint, leapfrog
+from hwm.integrators.torch_integrators import leapfrog
 from hwm.models.base import WorldModel
 from hwm.models.nets import CNNDecoder, CNNEncoder, StateDecoder, StateEncoder, cnn_autocast, mlp
 from hwm.models.registry import register
@@ -89,11 +89,18 @@ class HamiltonianModel(WorldModel):
         self.mp_iters = int(cfg.get("midpoint_iters", 6))
         self.lambda_ae = float(cfg.get("lambda_ae", 1.0))
         self.lambda_lat = float(cfg.get("lambda_lat", 0.1))
+        # The latent has a scale gauge (p -> c p, H -> c H(q, p / c) gives the same flow); without a pin
+        # the encoder's scale drifts until float32 and the eps I term break (amendment 1). A weak L2 prior
+        # on the encoded latent fixes the gauge.
+        self.lambda_z = float(cfg.get("lambda_z", 1e-3))
         self.dissipation = bool(cfg.get("dissipation", True))
         # torch.compile the step on CUDA: one step is ~600 tiny kernels (7 field evaluations), and
         # fusing them is a ~5x speed-up. CPU (the test suite) stays eager.
         self.compile = bool(cfg.get("compile", True))
         self._compiled = None
+        self._compiled_core = None
+        self.mp_tol = float(cfg.get("midpoint_tol", 1e-4))  # fixed-point convergence for adaptive substeps
+        self.mp_max_depth = int(cfg.get("midpoint_max_depth", 3))  # up to 2^3 = 8 substeps where stiff
 
         d_phi = n + len(self.angle_dims)
         n_tri = n * (n + 1) // 2
@@ -203,7 +210,39 @@ class HamiltonianModel(WorldModel):
 
             q, p = leapfrog(dVdq, lambda p: (A @ p[:, :, None]).squeeze(-1), z[:, :n], z[:, n:], h)
             return torch.cat([q, p], dim=-1)
-        return implicit_midpoint(self.field, z, h, iters=self.mp_iters)
+        return self._adaptive_midpoint(z, h, 0)
+
+    def _midpoint_core(self, z: Tensor, h: float) -> tuple[Tensor, Tensor]:
+        """Implicit midpoint by fixed-point iteration; returns (y1, per-sample size of the last update)."""
+        f = self.field
+        y1 = z + h * f(z)
+        prev = y1
+        for _ in range(self.mp_iters):
+            prev, y1 = y1, z + h * f(0.5 * (z + y1))
+        return y1, (y1 - prev).abs().amax(-1)
+
+    def _adaptive_midpoint(self, z: Tensor, h: float, depth: int) -> Tensor:
+        """Fixed-point iteration only converges while h Lip(f) is small, and a learned H has stiff regions
+        (amendment 1). Samples whose iteration has not converged to ``mp_tol`` are re-integrated as two
+        half-steps, recursively up to ``mp_max_depth`` levels. A composition of implicit-midpoint steps is
+        symplectic, and converged samples are untouched, so the structure guarantee is unchanged."""
+        core = self._core_fn()
+        y1, res = core(z, h)
+        if depth >= self.mp_max_depth:
+            return y1
+        bad = ~(res <= self.mp_tol)  # also catches NaN
+        if not bool(bad.any()):
+            return y1
+        idx = bad.nonzero().squeeze(1)
+        half = self._adaptive_midpoint(self._adaptive_midpoint(z[idx], h / 2, depth + 1), h / 2, depth + 1)
+        return y1.index_copy(0, idx, half)
+
+    def _core_fn(self):
+        if self.compile and next(self.parameters()).is_cuda:
+            if self._compiled_core is None:
+                self._compiled_core = torch.compile(self._midpoint_core, dynamic=True)
+            return self._compiled_core
+        return self._midpoint_core
 
     def _port_half(self, z: Tensor, u: Tensor, h: float) -> Tensor:
         q, p = z[:, : self.n], z[:, self.n :]
@@ -220,16 +259,14 @@ class HamiltonianModel(WorldModel):
         return self.enc(ctx[:, -1:])
 
     def step(self, z: Tensor, u: Tensor) -> Tensor:
+        port = self._port_half
         if self.compile and z.is_cuda:
             if self._compiled is None:
-                self._compiled = torch.compile(self._step)
-            return self._compiled(z, u)
-        return self._step(z, u)
-
-    def _step(self, z: Tensor, u: Tensor) -> Tensor:
-        z = self._port_half(z, u, self.dt)
+                self._compiled = torch.compile(self._port_half, dynamic=True)
+            port = self._compiled
+        z = port(z, u, self.dt)
         z = self.conservative_step(z, self.dt)
-        return self._port_half(z, u, self.dt)
+        return port(z, u, self.dt)
 
     def decode(self, z: Tensor) -> Tensor:
         if self.obs_mode == "pixels":
@@ -254,8 +291,16 @@ class HamiltonianModel(WorldModel):
             z_t = self.encode(stacks.reshape(B * H, *stacks.shape[2:])).reshape(B, H, -1)
             ae = self.rollout_loss(self.decode(z_t.reshape(B * H, -1)).reshape(tgt.shape), tgt)
             lat = self.rollout_loss(ro.z[:, 1:], z_t.detach())
-            return {"ae": self.lambda_ae * ae, "lat": self.lambda_lat * lat}
+            return {
+                "ae": self.lambda_ae * ae,
+                "lat": self.lambda_lat * lat,
+                "zreg": self.lambda_z * z_t.pow(2).mean(),
+            }
         z_t = self.enc(tgt.reshape(B * H, 1, -1)).reshape(B, H, -1)
         ae = self.rollout_loss(self.dec(z_t), tgt)
         lat = self.rollout_loss(ro.z[:, 1:], z_t.detach())
-        return {"ae": self.lambda_ae * ae, "lat": self.lambda_lat * lat}
+        return {
+            "ae": self.lambda_ae * ae,
+            "lat": self.lambda_lat * lat,
+            "zreg": self.lambda_z * z_t.pow(2).mean(),
+        }

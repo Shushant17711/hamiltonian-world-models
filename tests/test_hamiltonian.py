@@ -116,3 +116,35 @@ def test_closed_form_gradient_matches_autograd(env, separable):
     dq, dp = m.dH(q, p)
     torch.testing.assert_close(dq, gq)
     torch.testing.assert_close(dp, gp)
+
+
+def test_adaptive_substeps_only_where_stiff():
+    m = _model("pendulum")
+    z = 0.3 * torch.randn(16, 2, dtype=torch.float64)
+    y_plain, res = m._midpoint_core(z, m.dt)
+    assert (res < m.mp_tol).all()
+    torch.testing.assert_close(m.conservative_step(z, m.dt), y_plain)  # converged samples are untouched
+    # make H stiff: scale the potential's output layer up so h * Lip(f) >> 1 for every sample
+    with torch.no_grad():
+        torch.nn.init.normal_(m.V[-1].weight, std=200.0)
+        m.L_net[-1].bias.fill_(6.0)  # softplus(6) ~ 6 -> A ~ 36
+    z = 3 * torch.randn(16, 2, dtype=torch.float64)
+    _, res = m._midpoint_core(z, m.dt)
+    assert (res > m.mp_tol).any()  # plain fixed-point fails here
+    y = m.conservative_step(z, m.dt)
+    y_plain, _ = m._midpoint_core(z, m.dt)
+    assert torch.isfinite(y).all()
+    H0 = m.energy(z)
+
+    def err(x):
+        return ((m.energy(x) - H0).abs() / (H0.abs() + 1)).max()
+
+    assert err(y) < 0.05 * err(y_plain)  # substeps where stiff: ~75 -> ~0.3 relative energy error
+
+
+def test_adaptive_step_stays_symplectic():
+    m = _model("acrobot", midpoint_tol=0.0, midpoint_max_depth=1)  # forces one level of substeps
+    z = 0.5 * torch.randn(1, m.d_z, dtype=torch.float64)
+    J = torch.autograd.functional.jacobian(lambda y: m.conservative_step(y[None], m.dt)[0], z[0])
+    O = _omega(m.n)
+    assert (J.T @ O @ J - O).abs().max() < 1e-4
