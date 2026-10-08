@@ -104,6 +104,12 @@ class WorldModel(nn.Module):
         logs["loss"] = total.item()
         return total, logs
 
+    def backward(self, batch: Batch, horizon: int) -> dict[str, float]:
+        """Accumulate gradients of ``loss`` (the trainer zeroes them first and steps afterwards)."""
+        loss, logs = self.loss(batch, horizon)
+        loss.backward()
+        return logs
+
     def extra_loss(self, batch: Batch, ro: Rollout, horizon: int) -> dict[str, Tensor]:
         """Model-specific weighted loss terms added to the default loss (none by default)."""
         return {}

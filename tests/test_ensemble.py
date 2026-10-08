@@ -68,3 +68,16 @@ def test_bootstrap_resamples_and_training(tmp_path, data_dir):  # noqa: F811
     assert "train_pred" in _records(tmp_path / "ens")[-1]
     model, _ = load_trained(tmp_path / "ens", device="cpu")
     torch.testing.assert_close(model._trajs, t.model._trajs.cpu())
+
+
+def test_member_wise_backward_equals_summed_loss_gradient():
+    e = _ens()
+    b = _batch(B=6, H=4)
+    torch.manual_seed(1)
+    loss, _ = e.loss(b, 4)
+    loss.backward()
+    ref = [p.grad.clone() for p in e.parameters()]
+    e.zero_grad()
+    e.backward(b, 4)
+    for g, r in zip((p.grad for p in e.parameters()), ref, strict=True):
+        torch.testing.assert_close(g, r)

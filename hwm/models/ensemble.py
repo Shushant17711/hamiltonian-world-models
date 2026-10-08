@@ -81,6 +81,17 @@ class Ensemble(WorldModel):
                 logs[k] = logs.get(k, 0.0) + v / self.M  # member mean; "loss" is the member mean too
         return total, logs
 
+    def backward(self, batch, horizon: int) -> dict[str, float]:
+        """One member at a time, so only one member's activations are alive (members share no parameters,
+        so the gradients equal those of the summed loss); a 5-member pixel ensemble fits in 8 GB this way."""
+        logs: dict[str, float] = {}
+        for m, b in zip(self.members, batch.split(self.M), strict=True):
+            loss, lg = m.loss(b, horizon)
+            loss.backward()
+            for k, v in lg.items():
+                logs[k] = logs.get(k, 0.0) + v / self.M
+        return logs
+
     # --- WorldModel contract -----------------------------------------------------------------------
     def _parts(self, z: Tensor) -> list[Tensor]:
         return list(z.split(self.d_zm, dim=-1))

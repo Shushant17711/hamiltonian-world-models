@@ -194,9 +194,8 @@ class Trainer:
             if H != self.train_ds.horizon:
                 self.train_ds.set_horizon(H)
             batch = self._sample_batch()
-            loss, logs = self.model.loss(batch, H)
             self.opt.zero_grad(set_to_none=True)
-            loss.backward()
+            logs = self.model.backward(batch, H)
             gn = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.tc.grad_clip)
             self.opt.step()
             self.sched.step()

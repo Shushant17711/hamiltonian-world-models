@@ -171,9 +171,8 @@ class MBRL:
                 )
             else:
                 batch = ds.sample(self.mc["batch"], self.gen)
-            loss, logs = self.model.loss(batch, H)
             self.opt.zero_grad(set_to_none=True)
-            loss.backward()
+            logs = self.model.backward(batch, H)
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.mc["grad_clip"])
             self.opt.step()
             self.grad_steps += 1
