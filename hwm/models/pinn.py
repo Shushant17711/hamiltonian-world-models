@@ -33,15 +33,13 @@ class PINNModel(MLPModel):
         self.n_colloc = int(cfg.get("collocation", 256))
         d = env.d_obs
         # filled by prepare(); buffers so a checkpoint carries them
-        self.register_buffer("obs_mean", torch.zeros(d))
-        self.register_buffer("obs_std", torch.ones(d))
+        self._register_normaliser()
         self.register_buffer("box_lo", -torch.ones(d))
         self.register_buffer("box_hi", torch.ones(d))
 
     def prepare(self, normaliser, train_obs: Tensor) -> None:
+        self._load_normaliser(normaliser)
         dev = self.obs_mean.device
-        self.obs_mean.copy_(normaliser.mean.to(dev))
-        self.obs_std.copy_(normaliser.std.to(dev))
         z = normaliser.norm(train_obs.reshape(-1, train_obs.shape[-1]).float().to(dev))
         self.box_lo.copy_(z.min(0).values)
         self.box_hi.copy_(z.max(0).values)
@@ -49,8 +47,7 @@ class PINNModel(MLPModel):
     def physics_residual(self, z0: Tensor, z1: Tensor, a: Tensor) -> Tensor:
         """Per-transition residual (..., n) for normalised states z0 -> z1 under scaled actions a."""
         n = self.env.n
-        x0 = z0 * self.obs_std + self.obs_mean
-        x1 = z1 * self.obs_std + self.obs_mean
+        x0, x1 = self.physical(z0), self.physical(z1)
         lead, dt = x0.shape[:-1], self.env.dt
         q0, v0 = x0[..., :n].reshape(-1, n), x0[..., n:].reshape(-1, n)
         q1, v1 = x1[..., :n].reshape(-1, n), x1[..., n:].reshape(-1, n)

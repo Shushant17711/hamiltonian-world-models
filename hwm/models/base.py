@@ -112,6 +112,20 @@ class WorldModel(nn.Module):
         """Called once by the trainer before training with the train-split normaliser and raw
         train observations (N, T+1, d_obs). Anything stored must be a buffer so checkpoints keep it."""
 
+    # --- helpers for models whose losses need physical (un-normalised) states ----------------------
+    def _register_normaliser(self) -> None:
+        """Create ``obs_mean`` / ``obs_std`` buffers (identity until ``_load_normaliser``)."""
+        self.register_buffer("obs_mean", torch.zeros(self.d_obs))
+        self.register_buffer("obs_std", torch.ones(self.d_obs))
+
+    def _load_normaliser(self, normaliser) -> None:
+        self.obs_mean.copy_(normaliser.mean.to(self.obs_mean.device))
+        self.obs_std.copy_(normaliser.std.to(self.obs_std.device))
+
+    def physical(self, x: Tensor) -> Tensor:
+        """Normalised state observation -> physical (q, q_dot)."""
+        return x * self.obs_std + self.obs_mean
+
     @staticmethod
     def rollout_loss(pred: Tensor, target: Tensor) -> Tensor:
         return (pred - target).pow(2).mean()

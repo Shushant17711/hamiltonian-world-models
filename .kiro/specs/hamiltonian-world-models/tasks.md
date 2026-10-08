@@ -88,7 +88,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: residual is ~0 on true simulator transitions and > 0 on perturbed ones; contract test and tiny train
   - _Requirements: 4.2_
 
-- [ ] 6.2 Implement model C (latent Neural ODE + energy penalty)
+- [x] 6.2 Implement model C (latent Neural ODE + energy penalty)
   - `hwm/models/latent_ode.py`: encoder → z, `f_θ(z, u)` with RK4, energy head; passive-only variance penalty + energy supervision per design §5; `configs/model/latent_ode.yaml`
   - Tests: penalty is zero on non-passive batches, contract test, tiny train
   - _Requirements: 4.3_

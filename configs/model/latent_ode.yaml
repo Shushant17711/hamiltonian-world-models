@@ -1,0 +1,10 @@
+# Model C: latent Neural ODE + energy penalty (design §5, Req 4.3); re-implementation of the
+# friend's model, extended with actions. State mode only. Ablation: model.d_z = 4n.
+extends: ../train.yaml
+model:
+  name: latent_ode
+  hidden: 256
+  layers: 3
+  d_z: null        # null -> 2n
+  lambda_var: 1.0  # Var_t E(z_t) on passive windows
+  lambda_sup: 1.0  # (E(enc(x)) - H_true(x) / E_ref)^2
