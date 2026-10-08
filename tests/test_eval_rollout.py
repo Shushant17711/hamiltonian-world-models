@@ -145,3 +145,12 @@ def test_evaluate_cli_writes_metrics(tmp_path, model):
         assert -1 <= cal["spearman_pooled"] <= 1
     else:
         assert m["learned_drift"]["test_in"] is None and "calibration" not in m
+
+
+def test_drift_curve_is_monotone_and_ends_at_the_drift():
+    env, norm, x0 = _setup(N=6)
+    d = energy_drift(Oracle(env, norm, bias=1e-4), norm, env, x0, steps=100)
+    c = d["curve"]
+    assert c["steps"][0] == 1 and c["steps"][-1] == 100
+    assert all(a <= b for a, b in zip(c["median"], c["median"][1:]))
+    assert c["median"][-1] == pytest.approx(d["true"]["median"])

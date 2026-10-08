@@ -191,3 +191,32 @@ def test_h3_incomplete_while_running(tmp_path):
             _mbrl(tmp_path, env, "rssm", s, [0, 0])
     h3 = write_verdicts(tmp_path)[2]
     assert h3.status == "incomplete" and all(e.status == "incomplete" for e in h3.envs)
+
+
+def test_make_figures_on_synthetic_tree(tmp_path):
+    import subprocess
+    import sys
+
+    from tests.test_trainer import ROOT
+
+    _h4_tree(tmp_path, late_ratios=[0.8, 1.0, 1.25])
+    for env in T.H3_ENVS:
+        for s in T.SEEDS:
+            _mbrl(tmp_path, env, "hamiltonian_ens", s, [0, 0.9])
+            _mbrl(tmp_path, env, "rssm", s, [0, 0, 0, 0.9])
+    r = subprocess.run(
+        [sys.executable, "scripts/make_figures.py", str(tmp_path)],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0, r.stderr
+    made = {p.name for p in (tmp_path / "figures").iterdir()}
+    assert {
+        "error_vs_horizon.png",
+        "energy_drift.png",
+        "ood_bars.png",
+        "success_vs_steps.png",
+        "advantage_vs_lyapunov.png",
+    } <= made

@@ -79,6 +79,7 @@ def evaluate_run(run_dir: str | Path, device: str = "auto", drift_steps: int = T
         x0 = d["obs"][: T.DRIFT_INITIAL_STATES, 0]
         r = energy_drift(model, norm, env, x0, steps=drift_steps)
         out["drift"][band] = r["true"]
+        out.setdefault("drift_curve", {})[band] = r["curve"]
         out["learned_drift"][band] = r["learned"]
     if hasattr(model, "members"):  # ensembles: calibration of disagreement vs error (Req 8.4)
         out["calibration"] = {
