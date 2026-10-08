@@ -99,7 +99,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - _Requirements: 4.4_
 
 - [ ] 7. Implement evaluation and statistics
-- [ ] 7.1 Implement rollout-error and energy-drift evaluation
+- [x] 7.1 Implement rollout-error and energy-drift evaluation
   - `hwm/eval/rollout.py`: nMSE at h ∈ {10, 100, 1000} on test_in/test_ood/test_long, angles via (cos, sin)
   - `hwm/eval/energy.py`: 10k-step passive rollouts → decode → true H drift (and learned-energy drift when `energy()` is defined), chunked to fit 8 GB
   - `scripts/evaluate.py results/<run>` writes `results/<run>/eval/metrics.json`; tests on an oracle "model" that wraps the simulator (drift ≈ 0, nMSE ≈ 0)
