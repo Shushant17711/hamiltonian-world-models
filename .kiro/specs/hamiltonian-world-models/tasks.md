@@ -63,7 +63,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: window alignment (target[0] is the step after the last ctx frame), normaliser round-trip, pixel batch shapes
   - _Requirements: 3.1, 3.3, 2.1_
 
-- [ ] 4. Freeze the pre-registration in code and prose
+- [x] 4. Freeze the pre-registration in code and prose
   - `PREREGISTRATION.md` with H1–H4 protocol and thresholds copied from design §9, plus the metric definitions from §7
   - `hwm/eval/thresholds.py` with the same numbers as constants; a test parses PREREGISTRATION.md and asserts they match
   - Commit before any training code exists
