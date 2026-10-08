@@ -1,0 +1,6 @@
+# Phases 2-3 (H1, H2): every state-mode model on every env, the pre-registered seeds.
+# uv run python scripts/sweep.py configs/sweeps/state.yaml [--shard i/n]
+envs: [pendulum, cartpole, acrobot, orbit]
+models: [mlp, pinn, latent_ode, rssm, hamiltonian]
+seeds: [0, 1, 2]
+overrides: []

@@ -68,7 +68,7 @@ def sweep_file(tmp_path):
 def test_dry_run_lists_expected_ids(sweep_file):
     ids = [r["id"] for r in plan(sweep_file)]
     assert ids == [
-        f"{e}-{m}-state-s{s}" for e in ("pendulum", "orbit") for s in (0, 1) for m in ("mlp", "rssm")
+        f"{e}-{m}-state-s{s}" for s in (0, 1) for e in ("pendulum", "orbit") for m in ("mlp", "rssm")
     ]
     r = subprocess.run(
         [sys.executable, "scripts/sweep.py", str(sweep_file), "--dry-run"],
@@ -79,6 +79,14 @@ def test_dry_run_lists_expected_ids(sweep_file):
     )
     assert r.returncode == 0, r.stderr
     assert "8 runs, 8 to do" in r.stdout and "new    orbit-rssm-state-s1" in r.stdout
+    r = subprocess.run(
+        [sys.executable, "scripts/sweep.py", str(sweep_file), "--dry-run", "--shard", "1/3"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "3 runs, 3 to do" in r.stdout and "pendulum-rssm-state-s0" in r.stdout  # plan[1::3]
 
 
 def test_sweep_runs_and_skips_finished(sweep_file, tmp_path):
