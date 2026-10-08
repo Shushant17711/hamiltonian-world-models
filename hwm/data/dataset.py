@@ -129,7 +129,8 @@ class WindowDataset(torch.utils.data.Dataset):
         return Batch(**{f.name: getattr(b, f.name)[0] for f in fields(b)})
 
     def sample(self, batch_size: int, generator: torch.Generator | None = None) -> Batch:
-        idx = torch.randint(len(self), (batch_size,), generator=generator)
+        dev = generator.device if generator is not None else "cpu"  # a CUDA generator draws on CUDA
+        idx = torch.randint(len(self), (batch_size,), generator=generator, device=dev)
         return self._gather(idx // self.n_starts, idx % self.n_starts)
 
     def _gather(self, traj: torch.Tensor, start: torch.Tensor) -> Batch:

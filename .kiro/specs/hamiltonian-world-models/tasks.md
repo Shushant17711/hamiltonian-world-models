@@ -69,14 +69,14 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Commit before any training code exists
   - _Requirements: 10.2, 7.5_
 
-- [ ] 5. Build the model contract, integrators and trainer
-- [ ] 5.1 Implement the WorldModel base, nets and torch integrators
+- [x] 5. Build the model contract, integrators and trainer
+- [x] 5.1 Implement the WorldModel base, nets and torch integrators
   - `hwm/models/base.py` (`WorldModel`, `Rollout`, `Batch`), `hwm/models/nets.py` (MLP, state enc/dec, CNN enc/dec), `hwm/models/registry.py`
   - `hwm/integrators/torch_integrators.py`: `rk4`, `leapfrog`, `implicit_midpoint` (unrolled fixed-point, differentiable)
   - Tests: integrator orders on a harmonic oscillator (error slope), leapfrog/implicit-midpoint energy bounded over 10k steps, gradients flow through implicit midpoint
   - _Requirements: 5.2, 6.1_
 
-- [ ] 5.2 Implement the shared trainer with model A as its first client
+- [x] 5.2 Implement the shared trainer with model A as its first client
   - `hwm/train/trainer.py`: AdamW + cosine, horizon curriculum, val early stopping, JSONL metrics, `ckpt.pt` / `ckpt_best.pt`, resume, < 5M-param assert
   - `hwm/models/mlp.py` (residual next-state MLP); `scripts/train.py --config … key=value`; `configs/model/mlp.yaml`
   - Tests: 50-step train on a tiny pendulum dataset lowers the loss, resume continues from the saved step, a 6M-param config is refused

@@ -1,0 +1,7 @@
+# Model A: residual next-state MLP (design §5, Req 4.1). State mode only.
+extends: ../train.yaml
+model:
+  name: mlp
+  hidden: 256
+  layers: 3
+  layernorm: false
