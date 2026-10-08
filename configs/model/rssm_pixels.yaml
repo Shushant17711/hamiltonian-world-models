@@ -1,0 +1,6 @@
+# Model D in pixel mode (design §5, task 10.2): CNN encoder on 3 frames, transposed-CNN decoder from
+# [h, s], reward head r(z).
+extends: rssm.yaml
+obs_mode: pixels
+train:
+  steps: 60000          # design §6: pixel models

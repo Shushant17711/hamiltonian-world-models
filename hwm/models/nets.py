@@ -92,5 +92,10 @@ class CNNDecoder(nn.Module):
         return torch.sigmoid(self.deconv(x)).view(*lead, 64, 64)
 
 
+def cnn_autocast(x: torch.Tensor):
+    """bf16 autocast for the CNNs on CUDA (design §6); a no-op on CPU. Integrators stay fp32."""
+    return torch.autocast("cuda", dtype=torch.bfloat16, enabled=x.is_cuda)
+
+
 def n_params(module: nn.Module) -> int:
     return sum(p.numel() for p in module.parameters())

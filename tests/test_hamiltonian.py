@@ -88,8 +88,6 @@ def test_contract_and_losses():
     loss.backward()
     missing = [n for n, p in m.named_parameters() if p.grad is None]
     assert missing == ["V.4.bias"], missing  # a constant offset in H does not change the dynamics
-    with pytest.raises(NotImplementedError):
-        build(Config({"env": "pendulum", "obs_mode": "pixels", "model": {"name": "hamiltonian"}}))
 
 
 def test_eval_rollout_builds_no_graph():

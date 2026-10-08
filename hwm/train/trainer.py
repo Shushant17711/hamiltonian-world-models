@@ -64,8 +64,13 @@ class Trainer:
 
         self.model: WorldModel = build(cfg).to(self.device)
         n = self.model.n_params()
-        if n >= self.tc.get("max_params", 5_000_000):
-            raise ParamBudgetError(f"{cfg.model.name} has {n:,} parameters (budget < {self.tc.max_params:,})")
+        # Req 6.3 budgets each model; an ensemble is M models, so its budget applies per member
+        members = getattr(self.model, "members", None)
+        n_check = max(m.n_params() for m in members) if members is not None else n
+        if n_check >= self.tc.get("max_params", 5_000_000):
+            raise ParamBudgetError(
+                f"{cfg.model.name} has {n_check:,} parameters per model (budget < {self.tc.max_params:,})"
+            )
         self.n_params = n
 
         self.normaliser = Normaliser.from_dir(self.data_dir)

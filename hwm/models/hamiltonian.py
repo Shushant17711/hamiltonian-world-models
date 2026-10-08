@@ -20,7 +20,9 @@ fixed-point tolerance), which is what bounds the learned energy over long rollou
 
 Loss (design §5): the shared open-loop rollout loss (sum_k ||dec(z_k) - o_k||^2 + reconstruction of
 the context) + lambda_ae ||dec(enc(o_k)) - o_k||^2 + lambda_lat ||z_k - sg(enc(o_k))||^2 over the
-window's targets. State mode only here; pixel mode arrives with task 10.1.
+window's targets. Pixel mode (task 10.1): a CNN encoder on 3 frames, an image decoder that sees q only,
+and a reward head r(q, p, u) for planning; bf16 autocast is applied around the CNNs only, the
+integrator runs in fp32.
 """
 
 from __future__ import annotations
@@ -31,7 +33,7 @@ from torch import Tensor, nn
 
 from hwm.integrators.torch_integrators import implicit_midpoint, leapfrog
 from hwm.models.base import WorldModel
-from hwm.models.nets import StateDecoder, StateEncoder, mlp
+from hwm.models.nets import CNNDecoder, CNNEncoder, StateDecoder, StateEncoder, cnn_autocast, mlp
 from hwm.models.registry import register
 
 
@@ -73,8 +75,6 @@ def mlp_vjp(net: nn.Sequential, pre: list[Tensor], cot: Tensor) -> Tensor:
 @register("hamiltonian")
 class HamiltonianModel(WorldModel):
     def __init__(self, cfg, env, obs_mode: str = "state"):
-        if obs_mode != "state":
-            raise NotImplementedError("model E pixel mode arrives with task 10.1")
         n = int(cfg.get("n_lat") or env.n)
         super().__init__(env.d_obs, env.d_u, d_z=2 * n, obs_mode=obs_mode)
         self.n, self.dt = n, env.dt
@@ -106,8 +106,15 @@ class HamiltonianModel(WorldModel):
         self.K_net = mlp(d_phi, n * n, h_hidden, h_layers)
         nn.init.zeros_(self.K_net[-1].weight)  # start without dissipation; it must be learned
         nn.init.constant_(self.K_net[-1].bias, 0.0)
-        self.enc = StateEncoder(env.d_obs, 2 * n, 1, hidden, layers)
-        self.dec = StateDecoder(2 * n, env.d_obs, hidden, layers)
+        if obs_mode == "pixels":
+            # CNN on k = 3 frames -> (q, p); the image decoder sees q only (through the angle
+            # features), since an image depends on the configuration alone; a reward head for planning
+            self.enc = CNNEncoder(2 * n, context=self.context)
+            self.dec = CNNDecoder(d_phi)
+            self.reward_head = mlp(d_phi + n + self.d_u, 1, hidden, 2)
+        else:
+            self.enc = StateEncoder(env.d_obs, 2 * n, 1, hidden, layers)
+            self.dec = StateDecoder(2 * n, env.d_obs, hidden, layers)
 
     # --- Hamiltonian pieces (q: (B, n)) --------------------------------------------------------------
     def features(self, q: Tensor) -> Tensor:
@@ -207,6 +214,9 @@ class HamiltonianModel(WorldModel):
 
     # --- WorldModel contract -------------------------------------------------------------------------
     def encode(self, ctx: Tensor) -> Tensor:
+        if self.obs_mode == "pixels":
+            with cnn_autocast(ctx):
+                return self.enc(ctx).float()
         return self.enc(ctx[:, -1:])
 
     def step(self, z: Tensor, u: Tensor) -> Tensor:
@@ -222,7 +232,16 @@ class HamiltonianModel(WorldModel):
         return self._port_half(z, u, self.dt)
 
     def decode(self, z: Tensor) -> Tensor:
+        if self.obs_mode == "pixels":
+            with cnn_autocast(z):
+                return self.dec(self.features(z[:, : self.n])).float()
         return self.dec(z)
+
+    def reward(self, z: Tensor, u: Tensor) -> Tensor | None:
+        if self.obs_mode != "pixels":
+            return None  # state mode plans with the env's reward of the decoded state
+        q, p = z[:, : self.n], z[:, self.n :]
+        return self.reward_head(torch.cat([self.features(q), p, u], dim=-1)).squeeze(-1)
 
     def energy(self, z: Tensor) -> Tensor:
         return self.H(z[:, : self.n], z[:, self.n :])
@@ -230,6 +249,12 @@ class HamiltonianModel(WorldModel):
     def extra_loss(self, batch, ro, horizon: int) -> dict[str, Tensor]:
         tgt = batch.target[:, :horizon]
         B, H = tgt.shape[:2]
+        if self.obs_mode == "pixels":
+            stacks = self.target_stacks(batch.ctx, tgt)
+            z_t = self.encode(stacks.reshape(B * H, *stacks.shape[2:])).reshape(B, H, -1)
+            ae = self.rollout_loss(self.decode(z_t.reshape(B * H, -1)).reshape(tgt.shape), tgt)
+            lat = self.rollout_loss(ro.z[:, 1:], z_t.detach())
+            return {"ae": self.lambda_ae * ae, "lat": self.lambda_lat * lat}
         z_t = self.enc(tgt.reshape(B * H, 1, -1)).reshape(B, H, -1)
         ae = self.rollout_loss(self.dec(z_t), tgt)
         lat = self.rollout_loss(ro.z[:, 1:], z_t.detach())

@@ -1,0 +1,6 @@
+# Model E in pixel mode (design §5, task 10.1): CNN on 3 frames -> (q, p), image decoder from q only,
+# reward head r(q, p, u) for planning.
+extends: hamiltonian.yaml
+obs_mode: pixels
+train:
+  steps: 60000          # design §6: pixel models

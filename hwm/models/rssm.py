@@ -11,8 +11,9 @@ Loss = the shared open-loop rollout loss (Req 6.1; Dreamer's "overshooting") + t
 window: the posterior is filtered through the true targets, its decodings are reconstructed, and the
 KL(posterior || prior) uses KL balancing alpha = 0.8 and a free-nats floor of 1.0.
 
-The observation encoder/decoder are built by ``_make_obs_nets`` so pixel mode (task 10.2) only swaps
-them; state mode is implemented here.
+The observation encoder/decoder are built by ``_make_obs_nets``: MLPs in state mode; in pixel mode a
+CNN on k = 3 frames, a transposed-CNN decoder from [h, s] and a reward head r(z) for planning, with
+bf16 autocast around the CNNs only.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 
 from hwm.models.base import WorldModel
-from hwm.models.nets import StateDecoder, StateEncoder, mlp
+from hwm.models.nets import CNNDecoder, CNNEncoder, StateDecoder, StateEncoder, cnn_autocast, mlp
 from hwm.models.registry import register
 
 MIN_STD = 0.1
@@ -55,10 +56,19 @@ class RSSMModel(WorldModel):
         self.beta_kl = float(cfg.get("beta_kl", 1.0))
 
     def _make_obs_nets(self, hidden: int, layers: int) -> None:
-        if self.obs_mode != "state":
-            raise NotImplementedError("RSSM pixel mode arrives with task 10.2")
-        self.obs_enc = StateEncoder(self.d_obs, self.embed_dim, self.context, hidden, layers)
-        self.obs_dec = StateDecoder(self.d_z, self.d_obs, hidden, layers)
+        if self.obs_mode == "pixels":
+            self.obs_enc = CNNEncoder(self.embed_dim, context=self.context)
+            self.obs_dec = CNNDecoder(self.d_z)
+            self.reward_head = mlp(self.d_z, 1, hidden, 2)  # r(z_{t+1}) as in Dreamer
+        else:
+            self.obs_enc = StateEncoder(self.d_obs, self.embed_dim, self.context, hidden, layers)
+            self.obs_dec = StateDecoder(self.d_z, self.d_obs, hidden, layers)
+
+    def _enc(self, x: Tensor) -> Tensor:
+        if self.obs_mode == "pixels":
+            with cnn_autocast(x):
+                return self.obs_enc(x).float()
+        return self.obs_enc(x)
 
     # --- latent pieces -----------------------------------------------------------------------------
     def _split(self, z: Tensor) -> tuple[Tensor, Tensor]:
@@ -80,7 +90,7 @@ class RSSMModel(WorldModel):
     # --- WorldModel contract -----------------------------------------------------------------------
     def encode(self, ctx: Tensor) -> Tensor:
         h = ctx.new_zeros(ctx.shape[0], self.h_dim)
-        s = self._draw(*self.posterior(h, self.obs_enc(ctx)))
+        s = self._draw(*self.posterior(h, self._enc(ctx)))
         return torch.cat([h, s], dim=-1)
 
     def step(self, z: Tensor, u: Tensor) -> Tensor:
@@ -88,21 +98,21 @@ class RSSMModel(WorldModel):
         return torch.cat([h, self._draw(*self.prior(h))], dim=-1)
 
     def decode(self, z: Tensor) -> Tensor:
+        if self.obs_mode == "pixels":
+            with cnn_autocast(z):
+                return self.obs_dec(z).float()
         return self.obs_dec(z)
 
-    # --- ELBO --------------------------------------------------------------------------------------
-    def _target_stacks(self, ctx: Tensor, target: Tensor) -> Tensor:
-        """(B, H, k, *obs): for every target frame, it and the k-1 frames before it."""
-        k, H = self.context, target.shape[1]
-        seq = torch.cat([ctx, target], dim=1)
-        return torch.stack([seq[:, t + 1 : t + 1 + k] for t in range(H)], dim=1)
+    def reward(self, z: Tensor, u: Tensor) -> Tensor | None:
+        return self.reward_head(z).squeeze(-1) if self.obs_mode == "pixels" else None
 
+    # --- ELBO --------------------------------------------------------------------------------------
     def filter(self, batch, horizon: int) -> dict[str, Tensor]:
         """Posterior filtering over the window: returns posterior latents and KL statistics."""
         ctx, act, target = batch.ctx, batch.actions[:, :horizon], batch.target[:, :horizon]
         B, H = act.shape[:2]
-        stacks = self._target_stacks(ctx, target)
-        emb = self.obs_enc(stacks.reshape(B * H, *stacks.shape[2:])).reshape(B, H, -1)
+        stacks = self.target_stacks(ctx, target)
+        emb = self._enc(stacks.reshape(B * H, *stacks.shape[2:])).reshape(B, H, -1)
         z = self.encode(ctx)
         zs, kls_post, kls_prior = [], [], []
         for t in range(H):
@@ -124,5 +134,11 @@ class RSSMModel(WorldModel):
 
     def extra_loss(self, batch, ro, horizon: int) -> dict[str, Tensor]:
         f = self.filter(batch, horizon)
-        post_recon = self.rollout_loss(self.decode(f["z"]), batch.target[:, :horizon])
-        return {"elbo_recon": post_recon, "kl": self.beta_kl * self.kl_loss(f["kl"])}
+        z = f["z"]
+        tgt = batch.target[:, :horizon]
+        post_recon = self.rollout_loss(self.decode(z.reshape(-1, self.d_z)).reshape(tgt.shape), tgt)
+        out = {"elbo_recon": post_recon, "kl": self.beta_kl * self.kl_loss(f["kl"])}
+        if self.obs_mode == "pixels":  # reward from posterior states too (the prior rollout's is in loss())
+            r = self.reward(z.reshape(-1, self.d_z), None).reshape(z.shape[:2])
+            out["post_reward"] = (r - batch.rewards[:, :horizon]).pow(2).mean()
+        return out

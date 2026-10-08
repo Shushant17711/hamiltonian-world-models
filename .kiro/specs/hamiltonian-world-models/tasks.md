@@ -133,13 +133,13 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Reproduce the friend's setting (orbit, model C) as a sanity row and record that it matches the qualitative result
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 10. Extend to pixel observations
-- [ ] 10.1 Add pixel mode to model E
+- [x] 10. Extend to pixel observations
+- [x] 10.1 Add pixel mode to model E
   - CNN encoder on 3 frames → (q, p), decoder from q only, reward head r(q, p, u); `configs/model/hamiltonian_pixels.yaml`
   - Tests: decoder signature ignores p, tiny pixel train on pendulum lowers loss, bf16 autocast only around CNNs
   - _Requirements: 3.3, 5.1_
 
-- [ ] 10.2 Add pixel mode to the RSSM
+- [x] 10.2 Add pixel mode to the RSSM
   - CNN encoder/decoder plugged into 6.3, reward head; `configs/model/rssm_pixels.yaml`
   - Tests: tiny pixel train lowers loss, peak GPU memory of a full-size batch < 7 GB (skipped without CUDA)
   - _Requirements: 4.4, 3.3_

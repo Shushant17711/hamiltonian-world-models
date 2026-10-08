@@ -126,6 +126,12 @@ class WorldModel(nn.Module):
         """Normalised state observation -> physical (q, q_dot)."""
         return x * self.obs_std + self.obs_mean
 
+    def target_stacks(self, ctx: Tensor, target: Tensor) -> Tensor:
+        """(B, H, k, *obs): for every target frame, it and the k-1 frames before it (encoder inputs)."""
+        k, H = self.context, target.shape[1]
+        seq = torch.cat([ctx, target], dim=1)
+        return torch.stack([seq[:, t + 1 : t + 1 + k] for t in range(H)], dim=1)
+
     @staticmethod
     def rollout_loss(pred: Tensor, target: Tensor) -> Tensor:
         return (pred - target).pow(2).mean()

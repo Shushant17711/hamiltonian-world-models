@@ -1,6 +1,5 @@
 """Model D (RSSM): KL floor, prior rollout shapes, determinism in eval, tiny train (Req 4.4)."""
 
-import pytest
 import torch
 
 from hwm.config import Config
@@ -48,11 +47,6 @@ def test_kl_term_respects_free_nats_floor_and_backprops():
     assert all(p.grad is not None for n, p in m.named_parameters()), [
         n for n, p in m.named_parameters() if p.grad is None
     ]
-
-
-def test_pixel_mode_not_yet():
-    with pytest.raises(NotImplementedError):
-        build(Config({"env": "pendulum", "obs_mode": "pixels", "model": {"name": "rssm"}}))
 
 
 def test_tiny_train_lowers_loss(tmp_path, data_dir):  # noqa: F811
