@@ -212,6 +212,11 @@ randomly initialised H_θ (Req 5.3). Pipeline tests: a tiny end-to-end train (50
 CEM finding the optimum of a known quadratic, and hypothesis evaluation on synthetic result files.
 GPU-heavy experiments live in scripts, never in tests.
 
+Long-horizon checks (the 10k-step drift of Req 1.3, about 45 s on CPU for all four envs) carry
+`@pytest.mark.slow` and run with `uv run pytest -m slow`; the default suite applies the same drift
+thresholds over 2k steps so it stays under the 2-minute budget of Req 10.5. Measured 10k-step drift:
+pendulum 3e-9, orbit 7e-10, cart-pole 4e-8, acrobot 9e-7 (substeps 4/4/4/8).
+
 ## §11 Repository layout
 
 ```

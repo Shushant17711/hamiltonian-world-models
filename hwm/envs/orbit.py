@@ -1,6 +1,7 @@
 import numpy as np
 
 from hwm.envs.base import MechanicalEnv
+from hwm.envs.xp import mat2, xp_of
 
 
 class Orbit(MechanicalEnv):
@@ -21,16 +22,17 @@ class Orbit(MechanicalEnv):
         self.mu, self.e_max, self.damping = mu, e_max, damping
 
     def M(self, q):
-        return np.broadcast_to(np.eye(2), (len(q), 2, 2))
+        one, zero = xp_of(q).ones_like(q[:, 0]), xp_of(q).zeros_like(q[:, 0])
+        return mat2(one, zero, zero, one)
 
     def dM(self, q):
-        return np.zeros((len(q), 2, 2, 2))
+        return xp_of(q).zeros_like(q)[:, :, None, None] * xp_of(q).zeros_like(q)[:, None, :, None]
 
     def V(self, q):
-        return -self.mu / np.linalg.norm(q, axis=-1)
+        return -self.mu / ((q**2).sum(-1) ** 0.5)
 
     def dV(self, q):
-        r = np.linalg.norm(q, axis=-1, keepdims=True)
+        r = ((q**2).sum(-1) ** 0.5)[:, None]
         return self.mu * q / r**3
 
     def qdot(self, q, p):
@@ -50,7 +52,9 @@ class Orbit(MechanicalEnv):
         return self.from_elements(a, e, nu, omega, sense)
 
     def from_elements(self, a, e, nu, omega=0.0, sense=1.0):
-        a, e, nu, omega, sense = np.broadcast_arrays(*(np.asarray(x, float) for x in (a, e, nu, omega, sense)))
+        a, e, nu, omega, sense = np.broadcast_arrays(
+            *(np.asarray(x, float) for x in (a, e, nu, omega, sense))
+        )
         slr = a * (1.0 - e**2)  # semi-latus rectum
         r = slr / (1.0 + e * np.cos(nu))
         pos = np.stack([r * np.cos(nu), r * np.sin(nu)], -1)
@@ -58,7 +62,9 @@ class Orbit(MechanicalEnv):
         pos[..., 1] *= sense
         vel[..., 1] *= sense
         c, s = np.cos(omega)[..., None], np.sin(omega)[..., None]
-        rot = lambda v: np.stack([c[..., 0] * v[..., 0] - s[..., 0] * v[..., 1], s[..., 0] * v[..., 0] + c[..., 0] * v[..., 1]], -1)  # noqa: E731
+        rot = lambda v: np.stack(
+            [c[..., 0] * v[..., 0] - s[..., 0] * v[..., 1], s[..., 0] * v[..., 0] + c[..., 0] * v[..., 1]], -1
+        )
         return np.concatenate([rot(pos), rot(vel)], -1)
 
     def elements(self, qp):

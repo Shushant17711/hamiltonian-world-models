@@ -22,19 +22,19 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - _Requirements: 10.1, 6.2_
 
 - [ ] 2. Build the ground-truth simulators
-- [ ] 2.1 Implement the env contract, the GL4 integrator and the pendulum
+- [x] 2.1 Implement the env contract, the GL4 integrator and the pendulum
   - `hwm/envs/base.py`: `Env` with `n, d_u, u_max, dt, E_ref`, `H`, `dH`, `obs_to_qp`, `qp_to_obs`, `step(qp, u)`, `sample_band(rng, band, N)`
   - `hwm/integrators/gl4.py`: vectorised 2-stage Gauss–Legendre, fixed-point to 1e-13, 10 substeps, control + damping in the vector field
   - `hwm/envs/pendulum.py`, `hwm/envs/registry.py` (`make(name)`)
   - Tests: dH vs finite differences, drift < 1e-6 over 10k steps, determinism, sampled energies inside band
   - _Requirements: 1.1, 1.2, 1.3, 1.5_
 
-- [ ] 2.2 Implement the orbit env with Kepler-element sampling
+- [x] 2.2 Implement the orbit env with Kepler-element sampling
   - `hwm/envs/orbit.py`: H = ½‖p‖² − 1/‖q‖, 2-D thrust, `sample_band` over semi-major axis a with e ≤ 0.3
   - Tests: dH vs finite differences, drift < 1e-6 over 10k steps, sampled a and e recovered from (q, p), angular momentum conserved when u = 0
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 2.3 Implement cart-pole and acrobot (non-separable H)
+- [x] 2.3 Implement cart-pole and acrobot (non-separable H)
   - `hwm/envs/cartpole.py`, `hwm/envs/acrobot.py` with analytic M(q), ∂M/∂q, V, dH; cart-pole |x| rejection and kinetic-share cap in `sample_band`
   - Torch twins of `qp_to_obs` / `accel(q, v, u)` per env (needed later by the PINN), tested equal to numpy
   - Tests: dH vs finite differences, drift < 1e-5 over 10k steps, (q, q̇) ↔ (q, p) round-trip

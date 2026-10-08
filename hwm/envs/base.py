@@ -11,7 +11,9 @@ import functools
 from abc import ABC, abstractmethod
 
 import numpy as np
+import torch
 
+from hwm.envs.xp import solve_small, xp_of
 from hwm.integrators.gl4 import integrate
 
 
@@ -50,8 +52,15 @@ class Env(ABC):
 
     def step(self, qp: np.ndarray, u: np.ndarray | None = None) -> np.ndarray:
         qp = np.asarray(qp, dtype=np.float64)
-        u = np.zeros((qp.shape[0], self.d_u)) if u is None else np.clip(np.asarray(u, np.float64), -self.u_max, self.u_max)
-        return integrate(lambda y: self.vector_field(y, u), qp, self.dt, self.substeps)
+        u = (
+            np.zeros((qp.shape[0], self.d_u))
+            if u is None
+            else np.clip(np.asarray(u, np.float64), -self.u_max, self.u_max)
+        )
+        u2 = np.concatenate([u, u], 0)  # gl4_step evaluates both stages as one (2B, .) batch
+        return integrate(
+            lambda y: self.vector_field(y, u if len(y) == len(u) else u2), qp, self.dt, self.substeps
+        )
 
     def energy(self, qp: np.ndarray) -> np.ndarray:
         return self.H(qp[..., : self.n].reshape(-1, self.n), qp[..., self.n :].reshape(-1, self.n)).reshape(
@@ -83,22 +92,11 @@ class Env(ABC):
         """N canonical states whose energy E satisfies band[0] <= E / E_ref <= band[1] (orbit: a in band)."""
 
 
-def _flatten(q: np.ndarray, p: np.ndarray):
-    return np.atleast_2d(q), np.atleast_2d(p)
-
-
-def _solve_small(M: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Solve M x = b for batches of 1x1 / 2x2 matrices in closed form (numpy solve is call-overhead bound)."""
-    n = M.shape[-1]
-    if n == 1:
-        return b / M[:, 0, :]
-    if n == 2:
-        a, c, d, e = M[:, 0, 0], M[:, 0, 1], M[:, 1, 0], M[:, 1, 1]
-        det = a * e - c * d
-        x0 = (e * b[:, 0] - c * b[:, 1]) / det
-        x1 = (a * b[:, 1] - d * b[:, 0]) / det
-        return np.stack([x0, x1], axis=1)
-    return np.linalg.solve(M, b[..., None])[..., 0]
+def _flatten(q, p):
+    """Promote single states (n,) to a batch of one; numpy arrays and torch tensors alike."""
+    if q.ndim == 1:
+        q, p = q[None], p[None]
+    return q, p
 
 
 class MechanicalEnv(Env):
@@ -106,6 +104,9 @@ class MechanicalEnv(Env):
 
     dH/dp = M^-1 p = q_dot;  dH/dq = -0.5 q_dot^T (dM/dq_k) q_dot + dV/dq_k.
     ``separable = True`` (constant M) skips the dM term.
+
+    M, dM, V, dV must be written with ``xp_of(q)`` so they accept numpy arrays *and* torch tensors;
+    that gives the torch twins (``accel``, ``qp_to_obs``, ``obs_to_qp``) for free.
     """
 
     separable: bool = False
@@ -131,7 +132,7 @@ class MechanicalEnv(Env):
         """Candidate configurations q (N, n) for band sampling."""
 
     def qdot(self, q: np.ndarray, p: np.ndarray) -> np.ndarray:
-        return _solve_small(self.M(q), p)
+        return solve_small(self.M(q), p)
 
     def H(self, q, p):
         q, p = _flatten(q, p)
@@ -146,17 +147,32 @@ class MechanicalEnv(Env):
         return -0.5 * quad + self.dV(q), v
 
     def qp_to_obs(self, qp):
+        """Works on numpy arrays and torch tensors of shape (..., 2n)."""
         shape = qp.shape
         flat = qp.reshape(-1, 2 * self.n)
         q, p = flat[:, : self.n], flat[:, self.n :]
-        return np.concatenate([q, self.qdot(q, p)], axis=1).reshape(shape)
+        return xp_of(qp).concatenate([q, self.qdot(q, p)], 1).reshape(shape)
 
     def obs_to_qp(self, obs):
         shape = obs.shape
         flat = obs.reshape(-1, 2 * self.n)
         q, v = flat[:, : self.n], flat[:, self.n :]
         p = (self.M(q) * v[:, None, :]).sum(-1)
-        return np.concatenate([q, p], axis=1).reshape(shape)
+        return xp_of(obs).concatenate([q, p], 1).reshape(shape)
+
+    def accel(self, q, v, u=None):
+        """Generalised acceleration q_ddot(q, q_dot, u) (numpy or torch, batched (B, n)).
+
+        From p = M v:  M q_ddot = p_dot - M_dot v, with p_dot = -dH/dq + B u - D v.
+        """
+        dM = self.dM(q)
+        dHdq = -0.5 * (v[:, None, :, None] * dM * v[:, None, None, :]).sum((2, 3)) + self.dV(q)
+        p_dot = -dHdq - self.damping * v
+        if u is not None:
+            B = self.B if xp_of(q) is np else torch.as_tensor(self.B, dtype=q.dtype, device=q.device)
+            p_dot = p_dot + u @ B.T
+        M_dot = (dM * v[:, :, None, None]).sum(1)
+        return solve_small(self.M(q), p_dot - (M_dot * v[:, None, :]).sum(-1))
 
     def sample_band(self, rng, band, N):
         lo, hi = band
@@ -168,11 +184,9 @@ class MechanicalEnv(Env):
             Vq = self.V(q)
             ok = Vq < E - 1e-9 * self.E_ref
             ok &= self._accept(q, E)
-            if not ok.any():
-                continue
             q, E, Vq = q[ok], E[ok], Vq[ok]
-            d = rng.standard_normal(q.shape)
-            d = self._shape_momentum(q, d)
+            d, ok = self._sample_momentum_direction(rng, q)
+            q, E, Vq, d = q[ok], E[ok], Vq[ok], d[ok]
             T1 = 0.5 * (d * self.qdot(q, d)).sum(-1)
             p = d * np.sqrt((E - Vq) / T1)[:, None]
             out_q.append(q)
@@ -190,5 +204,10 @@ class MechanicalEnv(Env):
     def _accept(self, q: np.ndarray, E: np.ndarray) -> np.ndarray:
         return np.ones(len(q), dtype=bool)
 
-    def _shape_momentum(self, q: np.ndarray, d: np.ndarray) -> np.ndarray:
-        return d
+    def _sample_momentum_direction(self, rng: np.random.Generator, q: np.ndarray):
+        """Unscaled momentum directions and an acceptance mask."""
+        return rng.standard_normal(q.shape), np.ones(len(q), dtype=bool)
+
+    def valid_state(self, qp: np.ndarray) -> np.ndarray:
+        """Per-state validity for trajectory rejection (e.g. cart-pole leaving the track). Shape qp.shape[:-1]."""
+        return np.ones(qp.shape[:-1], dtype=bool)

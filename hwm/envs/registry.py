@@ -23,8 +23,10 @@ def names() -> list[str]:
 def _load_builtin() -> None:
     if _REGISTRY:
         return
+    from hwm.envs.acrobot import Acrobot
+    from hwm.envs.cartpole import CartPole
     from hwm.envs.orbit import Orbit
     from hwm.envs.pendulum import Pendulum
 
-    for cls in (Pendulum, Orbit):
+    for cls in (Pendulum, CartPole, Acrobot, Orbit):
         register(cls)

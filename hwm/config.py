@@ -88,9 +88,7 @@ class Config(Mapping[str, Any]):
         data = self.to_dict()
         if overrides is None:
             return Config(data)
-        items = (
-            [_parse_override(o) for o in overrides] if isinstance(overrides, list) else overrides.items()
-        )
+        items = [_parse_override(o) for o in overrides] if isinstance(overrides, list) else overrides.items()
         for dotted, value in items:
             _set_dotted(data, dotted, value)
         return Config(data)

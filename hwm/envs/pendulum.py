@@ -1,6 +1,7 @@
 import numpy as np
 
 from hwm.envs.base import MechanicalEnv
+from hwm.envs.xp import xp_of
 
 
 class Pendulum(MechanicalEnv):
@@ -19,16 +20,16 @@ class Pendulum(MechanicalEnv):
         self.E_ref = 2.0 * m * g * l  # energy of the upright rest state
 
     def M(self, q):
-        return np.full((len(q), 1, 1), self.m * self.l**2)
+        return xp_of(q).ones_like(q)[:, :, None] * (self.m * self.l**2)
 
     def dM(self, q):
-        return np.zeros((len(q), 1, 1, 1))
+        return xp_of(q).zeros_like(q)[:, :, None, None]
 
     def V(self, q):
-        return self.m * self.g * self.l * (1.0 - np.cos(q[:, 0]))
+        return self.m * self.g * self.l * (1.0 - xp_of(q).cos(q[:, 0]))
 
     def dV(self, q):
-        return self.m * self.g * self.l * np.sin(q[:, :1])
+        return self.m * self.g * self.l * xp_of(q).sin(q)
 
     def sample_config(self, rng, N):
         return rng.uniform(-np.pi, np.pi, (N, 1))
