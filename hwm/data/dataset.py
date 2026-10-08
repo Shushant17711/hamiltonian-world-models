@@ -40,6 +40,21 @@ class Batch:
         """``collate_fn`` for ``torch.utils.data.DataLoader`` over single windows."""
         return Batch(**{f.name: torch.stack([getattr(b, f.name) for b in items]) for f in fields(Batch)})
 
+    @staticmethod
+    def cat(batches: list[Batch]) -> Batch:
+        return Batch(**{f.name: torch.cat([getattr(b, f.name) for b in batches]) for f in fields(Batch)})
+
+    def split(self, m: int) -> list[Batch]:
+        """``m`` equal consecutive chunks along the batch dimension (inverse of ``cat``)."""
+        n = self.ctx.shape[0]
+        if n % m:
+            raise ValueError(f"batch of {n} does not split into {m} equal parts")
+        k = n // m
+        return [
+            Batch(**{f.name: getattr(self, f.name)[i * k : (i + 1) * k] for f in fields(self)})
+            for i in range(m)
+        ]
+
     def to(self, device) -> Batch:
         return Batch(**{f.name: getattr(self, f.name).to(device) for f in fields(self)})
 
@@ -128,10 +143,18 @@ class WindowDataset(torch.utils.data.Dataset):
         b = self._gather(torch.tensor([i // self.n_starts]), torch.tensor([i % self.n_starts]))
         return Batch(**{f.name: getattr(b, f.name)[0] for f in fields(b)})
 
-    def sample(self, batch_size: int, generator: torch.Generator | None = None) -> Batch:
+    def sample(
+        self, batch_size: int, generator: torch.Generator | None = None, traj_idx: torch.Tensor | None = None
+    ) -> Batch:
+        """Uniform random windows. ``traj_idx`` restricts (and re-weights) the trajectories, e.g. to a
+        bootstrap resample: a trajectory listed twice is drawn twice as often."""
         dev = generator.device if generator is not None else "cpu"  # a CUDA generator draws on CUDA
-        idx = torch.randint(len(self), (batch_size,), generator=generator, device=dev)
-        return self._gather(idx // self.n_starts, idx % self.n_starts)
+        n = len(self) if traj_idx is None else len(traj_idx) * self.n_starts
+        idx = torch.randint(n, (batch_size,), generator=generator, device=dev)
+        traj = idx // self.n_starts
+        if traj_idx is not None:
+            traj = traj_idx.to(dev)[traj]
+        return self._gather(traj, idx % self.n_starts)
 
     def _gather(self, traj: torch.Tensor, start: torch.Tensor) -> Batch:
         traj, start = traj.to(self.device), start.to(self.device)

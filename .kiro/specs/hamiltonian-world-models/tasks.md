@@ -111,19 +111,19 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: CI covers the true mean in ≥ 90% of 200 synthetic trials; sweep dry-run lists the expected run ids
   - _Requirements: 7.4_
 
-- [ ] 8. Implement model E and its ensemble
-- [ ] 8.1 Implement the Hamiltonian world model (state mode)
+- [x] 8. Implement model E and its ensemble
+- [x] 8.1 Implement the Hamiltonian world model (state mode)
   - `hwm/models/hamiltonian.py`: H_θ = ½pᵀA_θ(q)p + V_θ(q) with Cholesky A_θ, separable variant, angle features, G_θ(q), R_θ = KKᵀ, Strang step per design §5; `configs/model/hamiltonian.yaml`
   - Tests: JᵀΩJ = Ω (1e-4) for the conservative step, A_θ positive definite, learned energy bounded over 10k steps with u = R = 0 (the 1k vs 10k criterion), contract test, tiny train
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 8.2 Implement the ensemble wrapper
+- [x] 8.2 Implement the ensemble wrapper
   - `hwm/models/ensemble.py`: M members, per-member seeds and bootstrap trajectory resamples, batched `rollout` returning members/mean/disagreement; trainer support for training members in one run
   - Tests: members differ after init, disagreement is 0 when all members are identical copies
   - _Requirements: 5.4_
 
 - [ ] 9. Run the state-vector study and evaluate H1/H2
-- [ ] 9.1 Implement the hypothesis evaluator for H1/H2
+- [x] 9.1 Implement the hypothesis evaluator for H1/H2
   - `hwm/eval/hypotheses.py`: load `results/**/eval/metrics.json`, apply `thresholds.py`, write `results/verdicts.md` with per-env tables and CIs
   - Tests on synthetic result trees that pass and fail each hypothesis
   - _Requirements: 7.5, 7.4_

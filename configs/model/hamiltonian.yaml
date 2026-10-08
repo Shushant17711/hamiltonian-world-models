@@ -1,0 +1,18 @@
+# Model E: Hamiltonian world model (ours; design §5, Req 5.1-5.3). The confirmatory configuration
+# (PREREGISTRATION.md §2): latent dimension 2n, non-separable H with implicit midpoint.
+extends: ../train.yaml
+model:
+  name: hamiltonian
+  n_lat: null           # null -> the env's n; ablation: 2n (exploratory)
+  angle_dims: null      # null -> the env's angle_dims when n_lat = n
+  separable: false      # true -> constant A, leapfrog (exploratory)
+  hidden: 256           # encoder / decoder
+  layers: 3
+  h_hidden: 128         # V, L, G, K networks
+  h_layers: 2
+  eps: 1.0e-3           # A = L L^T + eps I
+  midpoint_iters: 6
+  dissipation: true     # R = K K^T
+  compile: true         # torch.compile the step on CUDA (eager on CPU)
+  lambda_ae: 1.0
+  lambda_lat: 0.1

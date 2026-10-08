@@ -1,0 +1,21 @@
+# E-ens: 5 Hamiltonian world models, each with its own init seed and bootstrap resample of the train
+# trajectories (design §5, Req 5.4). Each step trains every member on its own batch of train.batch.
+extends: hamiltonian.yaml
+model:
+  name: ensemble
+  members: 5
+  member:
+    name: hamiltonian
+    n_lat: null
+    angle_dims: null
+    separable: false
+    hidden: 256
+    layers: 3
+    h_hidden: 128
+    h_layers: 2
+    eps: 1.0e-3
+    midpoint_iters: 6
+    dissipation: true
+    compile: true
+    lambda_ae: 1.0
+    lambda_lat: 0.1

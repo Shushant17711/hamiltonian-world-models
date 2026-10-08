@@ -24,7 +24,7 @@ from typing import Any
 import torch
 
 from hwm.config import Config, config_hash, load_config
-from hwm.data.dataset import Normaliser, WindowDataset
+from hwm.data.dataset import Batch, Normaliser, WindowDataset
 from hwm.models import WorldModel, build
 from hwm.utils.seed import seed_everything
 
@@ -40,7 +40,10 @@ def resolve_device(name: str) -> torch.device:
 
 
 def run_id(cfg: Config) -> str:
-    return f"{cfg.env}-{cfg.model.name}-{cfg.get('obs_mode', 'state')}-s{cfg.seed}"
+    name = cfg.model.name
+    if name == "ensemble":
+        name = f"{cfg.model.member.name}_ens"
+    return f"{cfg.env}-{name}-{cfg.get('obs_mode', 'state')}-s{cfg.seed}"
 
 
 def horizon_at(step: int, total: int, curriculum: Config) -> int:
@@ -150,6 +153,14 @@ class Trainer:
             f.write(json.dumps(record) + "\n")
 
     # --- training -----------------------------------------------------------------------------
+    def _sample_batch(self) -> Batch:
+        """One training batch; an ensemble gets one batch per member from its bootstrap resample,
+        concatenated along the batch dimension (the ensemble splits it again in ``loss``)."""
+        resamples = getattr(self.model, "member_trajs", None)
+        if resamples is None:
+            return self.train_ds.sample(self.tc.batch, self.gen)
+        return Batch.cat([self.train_ds.sample(self.tc.batch, self.gen, idx) for idx in resamples])
+
     @torch.no_grad()
     def validate(self) -> float:
         self.model.eval()
@@ -177,7 +188,7 @@ class Trainer:
             H = horizon_at(self.step, total, self.tc.curriculum)
             if H != self.train_ds.horizon:
                 self.train_ds.set_horizon(H)
-            batch = self.train_ds.sample(self.tc.batch, self.gen)
+            batch = self._sample_batch()
             loss, logs = self.model.loss(batch, H)
             self.opt.zero_grad(set_to_none=True)
             loss.backward()

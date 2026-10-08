@@ -22,6 +22,7 @@ _MODULES = {
     "latent_ode": "hwm.models.latent_ode",
     "rssm": "hwm.models.rssm",
     "hamiltonian": "hwm.models.hamiltonian",
+    "ensemble": "hwm.models.ensemble",
 }
 
 
