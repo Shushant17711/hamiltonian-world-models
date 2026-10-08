@@ -176,7 +176,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - _Requirements: 8.3, 8.4, 8.5_
 
 - [ ] 14. Run the acrobot chaos stress test (H4)
-- [ ] 14.1 Implement the Lyapunov estimator and advantage-vs-horizon analysis
+- [x] 14.1 Implement the Lyapunov estimator and advantage-vs-horizon analysis
   - `hwm/eval/lyapunov.py` (Benettin on GL4) + `scripts/lyapunov.py`; `hypotheses.py` gains advantage(h / t_λ) with CIs and the H4 prediction check
   - Tests: λ ≈ 0 for the pendulum (|λ| < 0.05), λ > 0 for the acrobot at high energy
   - _Requirements: 9.1, 9.2_
