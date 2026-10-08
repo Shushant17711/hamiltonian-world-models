@@ -84,6 +84,8 @@ resolved data config). Arrays: `obs (N, T+1, d_obs)`, `qp (N, T+1, 2n)`, `act (N
 - Images are **not stored**. `hwm.envs.render` is a vectorised torch SDF rasteriser (anti-aliased
   by a 1-px smoothstep), 64×64 grayscale in [0, 1], that runs on CPU or GPU from observations at
   batch time (Req 3.2). Pixel contexts stack k = 3 frames (Req 3.3).
+  World windows (half-width): pendulum 1.3, cart-pole 3.2, acrobot 2.2, orbit 2.5. The cart-pole
+  pole is only ~5 px long at this scale (the camera must cover the track); recorded in LIMITATIONS.
 - `hwm.data.WindowDataset` yields random windows `(ctx_obs (k, ·), actions (H,), target_obs (H, ·),
   rewards (H,))` with H set by the curriculum. Normalisation statistics come from train only and
   are saved with the model.

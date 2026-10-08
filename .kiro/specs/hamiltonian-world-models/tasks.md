@@ -21,7 +21,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - `hwm/utils/seed.py` (seed torch/numpy/python); `tests/test_config.py` for round-trip, overrides and hash stability
   - _Requirements: 10.1, 6.2_
 
-- [ ] 2. Build the ground-truth simulators
+- [x] 2. Build the ground-truth simulators
 - [x] 2.1 Implement the env contract, the GL4 integrator and the pendulum
   - `hwm/envs/base.py`: `Env` with `n, d_u, u_max, dt, E_ref`, `H`, `dH`, `obs_to_qp`, `qp_to_obs`, `step(qp, u)`, `sample_band(rng, band, N)`
   - `hwm/integrators/gl4.py`: vectorised 2-stage Gauss–Legendre, fixed-point to 1e-13, 10 substeps, control + damping in the vector field
@@ -45,7 +45,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: success is true on hand-built upright / transferred trajectories and false on hanging ones; numpy and torch rewards agree
   - _Requirements: 1.4_
 
-- [ ] 2.5 Implement the torch SDF renderer
+- [x] 2.5 Implement the torch SDF renderer
   - `hwm/envs/render.py`: `render(env_name, obs, size=64) -> (…, 64, 64)` in [0, 1], segment/circle/box SDFs with smoothstep anti-aliasing, CPU and CUDA
   - Tests: output shape and range, pendulum frame centroid moves with θ, different states give different images, 1000 frames render in < 1 s on CPU
   - _Requirements: 3.2_
