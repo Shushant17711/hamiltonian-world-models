@@ -114,3 +114,11 @@ def test_train_script_cli(tmp_path):
     )
     assert r.returncode == 0, r.stderr
     assert (tmp_path / "res" / "pendulum-mlp-state-s0" / "ckpt_best.pt").exists()
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+def test_resume_on_cuda(tmp_path, data_dir):
+    cfg = _cfg("train.device=cuda")
+    Trainer(cfg, tmp_path / "g", data_dir).fit(stop_after=20)
+    out = Trainer(cfg, tmp_path / "g", data_dir).fit()  # generator state reloads onto a CUDA generator
+    assert out["step"] == 50

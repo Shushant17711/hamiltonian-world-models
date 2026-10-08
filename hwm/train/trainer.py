@@ -145,11 +145,11 @@ class Trainer:
         self.model.load_state_dict(s["model"])
         self.opt.load_state_dict(s["opt"])
         self.sched.load_state_dict(s["sched"])
-        self.gen.set_state(s["gen"].cpu() if self.device.type == "cpu" else s["gen"])
+        self.gen.set_state(s["gen"].cpu())  # generator states are CPU ByteTensors, even for CUDA generators
         self.step, self.best, self.bad_evals, self.done = s["step"], s["best"], s["bad_evals"], s["done"]
         # models may draw from the global RNG (e.g. PINN collocation points); restore it for exact resume
         torch.set_rng_state(s["torch_rng"].cpu())
-        if s["cuda_rng"]:
+        if s["cuda_rng"] and torch.cuda.is_available():
             torch.cuda.set_rng_state_all([r.cpu() for r in s["cuda_rng"]])
         return True
 

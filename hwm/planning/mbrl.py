@@ -293,8 +293,8 @@ class MBRL:
         s = torch.load(p, map_location=self.device, weights_only=False)
         self.model.load_state_dict(s["model"])
         self.opt.load_state_dict(s["opt"])
-        self.gen.set_state(s["gen"].cpu() if self.device.type == "cpu" else s["gen"])
-        self.plan_gen.set_state(s["plan_gen"].cpu() if self.device.type == "cpu" else s["plan_gen"])
+        self.gen.set_state(s["gen"].cpu())  # generator states are CPU ByteTensors, even for CUDA
+        self.plan_gen.set_state(s["plan_gen"].cpu())
         self.rng.bit_generator.state = s["np_rng"]
         torch.set_rng_state(s["torch_rng"].cpu())
         self.normaliser = Normaliser.from_state_dict(s["normaliser"]) if s["normaliser"] else None

@@ -25,9 +25,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # `scripts.*` when
 
 from hwm.config import load_config
 from hwm.data.generate import generate
+from hwm.models.registry import get as get_model
 from hwm.train.trainer import Trainer, run_id
 from scripts.evaluate import evaluate_run
 from scripts.train import ROOT, build_run_config
+
+# Import every model now: models are registered lazily, and a long sweep must never import a module
+# for the first time hours later, after the code on disk may have changed.
+for _name in ("mlp", "pinn", "latent_ode", "rssm", "hamiltonian", "ensemble"):
+    get_model(_name)
 
 
 def plan(sweep_path: str | Path, overrides: list[str] | None = None) -> list[dict]:
