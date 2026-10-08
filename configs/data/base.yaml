@@ -1,0 +1,13 @@
+# Shared dataset settings (design §3). Per-env files extend this and set env + bands.
+version: 2          # bump when simulator code changes in a way that alters trajectories
+seed: 0
+actions:
+  ou_theta: 0.15
+  ou_sigma: 0.3      # fraction of u_max
+  passive_frac: 0.25
+sizes:               # [N trajectories, T steps]
+  train: [1000, 200]
+  val: [100, 200]
+  test_in: [200, 200]
+  test_ood: [200, 200]
+  test_long: [50, 1000]   # passive, per band (in + ood)

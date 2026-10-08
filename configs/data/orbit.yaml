@@ -1,0 +1,5 @@
+extends: base.yaml
+env: orbit
+bands:
+  train: [0.8, 1.2]
+  ood: [1.4, 1.8]

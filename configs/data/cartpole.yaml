@@ -1,0 +1,7 @@
+extends: base.yaml
+env: cartpole
+bands:
+  train: [0.10, 0.60]
+  ood: [0.70, 0.95]
+actions:
+  centering: [3.0, 3.0]   # PD on cart position added to OU forces; without it ~90% of rollouts leave the track

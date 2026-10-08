@@ -1,0 +1,5 @@
+extends: base.yaml
+env: acrobot
+bands:
+  train: [0.05, 0.40]
+  ood: [0.50, 0.80]

@@ -1,0 +1,5 @@
+extends: base.yaml
+env: pendulum
+bands:
+  train: [0.10, 0.60]
+  ood: [0.70, 0.95]

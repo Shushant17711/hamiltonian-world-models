@@ -3,7 +3,7 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
-data/
-results/*
-!results/verdicts.md
-!results/figures/
+/data/
+/results/*
+!/results/verdicts.md
+!/results/figures/
