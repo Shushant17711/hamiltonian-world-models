@@ -1,0 +1,5 @@
+# Phases 2-3, model E after amendment 1 (PREREGISTRATION.md). Same run ids as configs/sweeps/state.yaml.
+envs: [pendulum, cartpole, acrobot, orbit]
+models: [hamiltonian]
+seeds: [0, 1, 2]
+overrides: []
