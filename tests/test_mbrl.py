@@ -82,5 +82,26 @@ def test_cartpole_random_warmup_stays_on_the_track(tmp_path):
     cfg = _cfg("mlp", "env=cartpole", "model.hidden=16", "model.layers=1")
     m = MBRL(cfg, tmp_path / "c")
     assert m.centering is not None
-    obs, act = m.run_episodes(5, "random")
+    obs, act, _ = m.run_episodes(5, "random")
     assert np.abs(obs[..., 0]).max() < 3.2 and np.abs(act).max() <= m.env.u_max
+
+
+def test_episodes_end_when_the_state_leaves_the_valid_region(tmp_path):
+    cfg = _cfg("mlp", "env=cartpole", "model.hidden=16", "model.layers=1")
+    m = MBRL(cfg, tmp_path / "v")
+    m.centering = None  # uncentred OU forces push some carts off the track
+    m.mc["ou_sigma"] = 1.0
+    obs, act, lengths = m.run_episodes(8, "random")
+    assert (lengths < m.env.episode_len).any()
+    for o, a, L in zip(obs, act, lengths, strict=True):
+        assert np.abs(o[:L, 0]).max() <= m.env.x_limit  # every state before the last executed one is valid
+        if L < m.env.episode_len:
+            assert np.abs(o[L, 0]) > m.env.x_limit and (o[L:] == o[L]).all() and (a[L:] == 0).all()
+    m.add(obs, act, lengths)
+    assert m.env_steps == int(lengths.sum())
+    from hwm.data.dataset import WindowDataset
+
+    ds = WindowDataset(m.run_dir / "buffer", "train", 8, normaliser=m.normaliser, env_name="cartpole")
+    assert len(ds) == int(np.clip(lengths - 8 + 1, 0, None).sum())
+    b = ds.sample(256, __import__("torch").Generator().manual_seed(0))
+    assert b.target_obs[..., 0].abs().max() <= m.env.x_limit + 0.5  # windows never run past an episode end

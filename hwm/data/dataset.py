@@ -126,6 +126,9 @@ class WindowDataset(torch.utils.data.Dataset):
         if self.n_starts < 1:
             raise ValueError(f"trajectories of {T1 - 1} steps are too short for H={horizon}, k={context}")
         self.n_traj = N
+        # optional per-trajectory lengths (executed steps; MBRL episodes can end early): windows stay inside them
+        self.lengths = torch.as_tensor(d["lengths"], device=self.device) if "lengths" in d else None
+        self._update_counts()
         # rewards for every transition, computed once: r_t = reward(obs_{t+1}, u_t)
         self.rew = self.env.reward(self.obs[:, 1:].double(), self.act.double() * self.env.u_max).float()
 
@@ -135,12 +138,35 @@ class WindowDataset(torch.utils.data.Dataset):
         if n < 1:
             raise ValueError(f"horizon {horizon} too long")
         self.horizon, self.n_starts = horizon, n
+        self._update_counts()
+
+    def _update_counts(self) -> None:
+        """Windows per trajectory; only used when trajectories have individual lengths."""
+        if self.lengths is None:
+            self.counts = None
+            return
+        self.counts = (self.lengths - self.horizon - self.context + 2).clamp(min=0)
+        if int(self.counts.sum()) < 1:
+            raise ValueError(f"no trajectory is long enough for H={self.horizon}, k={self.context}")
 
     def __len__(self) -> int:
+        if self.counts is not None:
+            return int(self.counts.sum())
         return self.n_traj * self.n_starts
 
+    def _locate(self, idx: torch.Tensor, sel: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """Flat window index -> (trajectory, start) over the trajectories ``sel`` (variable lengths)."""
+        c = self.counts[sel.to(self.counts.device)]
+        cum = c.cumsum(0)
+        pos = torch.searchsorted(cum, idx.to(cum.device), right=True)
+        return sel.to(cum.device)[pos], idx.to(cum.device) - (cum[pos] - c[pos])
+
     def __getitem__(self, i: int) -> Batch:
-        b = self._gather(torch.tensor([i // self.n_starts]), torch.tensor([i % self.n_starts]))
+        if self.counts is not None:
+            traj, start = self._locate(torch.tensor([i]), torch.arange(self.n_traj))
+            b = self._gather(traj, start)
+        else:
+            b = self._gather(torch.tensor([i // self.n_starts]), torch.tensor([i % self.n_starts]))
         return Batch(**{f.name: getattr(b, f.name)[0] for f in fields(b)})
 
     def sample(
@@ -149,6 +175,11 @@ class WindowDataset(torch.utils.data.Dataset):
         """Uniform random windows. ``traj_idx`` restricts (and re-weights) the trajectories, e.g. to a
         bootstrap resample: a trajectory listed twice is drawn twice as often."""
         dev = generator.device if generator is not None else "cpu"  # a CUDA generator draws on CUDA
+        if self.counts is not None:
+            sel = torch.arange(self.n_traj) if traj_idx is None else traj_idx.cpu()
+            n = int(self.counts[sel.to(self.counts.device)].sum())
+            idx = torch.randint(n, (batch_size,), generator=generator, device=dev)
+            return self._gather(*self._locate(idx, sel))
         n = len(self) if traj_idx is None else len(traj_idx) * self.n_starts
         idx = torch.randint(n, (batch_size,), generator=generator, device=dev)
         traj = idx // self.n_starts

@@ -255,3 +255,10 @@ and the reward targets (−0.05 x²) made the first cart-pole E-ens run diverge 
 action process as the datasets, and the MBRL training loop skips non-finite updates like the shared trainer.
 Pendulum and orbit runs are unaffected (no centring there) and resumed; the cart-pole run was restarted from
 scratch and the diverged one kept in `results/_diverged_v1/`.
+
+*Fix, 2026-10-09 (second).* Episodes collected by MPC with an early, poor model also left the region the
+datasets are restricted to (cart-pole |x| up to 654; orbit radius below 0.3), producing unbounded rewards that
+stalled training. MBRL episodes now end at the first state outside `env.valid_state` — the same track and
+annulus limits dataset generation enforces, and the standard cart-pole termination rule. Such an episode is a
+failure; only executed steps count towards the env-step budget. The cart-pole and orbit E-ens seed-0 runs were
+restarted; the pendulum (no validity limit) is unaffected.

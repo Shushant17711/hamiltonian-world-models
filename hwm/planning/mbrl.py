@@ -85,6 +85,7 @@ class MBRL:
         self.plan_gen = torch.Generator(device=self.device).manual_seed(cfg.seed + 1)
         self.obs: list[np.ndarray] = []  # episodes (T+1, d_obs), raw
         self.act: list[np.ndarray] = []  # (T, d_u), raw
+        self.lens: list[int] = []  # executed steps per episode
         self.normaliser: Normaliser | None = None
         self.env_steps = self.grad_steps = self.iteration = 0
         self.evaluated: list[int] = []
@@ -101,12 +102,17 @@ class MBRL:
             return render(self.env.name, x.to(self.device))
         return self.normaliser.norm(x)
 
-    def run_episodes(self, n: int, policy: str) -> tuple[np.ndarray, np.ndarray]:
-        """n episodes in lock-step from the task start: ('random' | 'mpc') -> obs (n, T+1, d), act (n, T, d_u)."""
+    def run_episodes(self, n: int, policy: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """n episodes in lock-step from the task start: ('random' | 'mpc') -> obs (n, T+1, d), act (n, T, d_u),
+        lengths (n,). An episode ends at the first state outside ``env.valid_state`` (the cart leaving the track,
+        the orbit leaving its annulus: the limits dataset generation enforces); that state is kept, and the
+        arrays are padded past it by repeating the last state with zero actions."""
         env, T = self.env, self.env.episode_len
         qp = env.task_start(n)
         hist = [env.qp_to_obs(qp)]
         acts = []
+        lengths = np.full(n, T)
+        alive = np.ones(n, dtype=bool)
         if policy == "random":
             seq = ou_actions(self.rng, n, T, env.d_u, env.u_max, self.mc["ou_theta"], self.mc["ou_sigma"])
         else:
@@ -130,24 +136,42 @@ class MBRL:
             else:
                 a, _ = mpc.act(self._context(hist))
                 u = a.double().cpu().numpy() * env.u_max
-            qp = env.step(qp, u)
+            u = np.where(alive[:, None], np.clip(u, -env.u_max, env.u_max), 0.0)
+            qp = np.where(alive[:, None], env.step(qp, u), qp)
             hist.append(env.qp_to_obs(qp))
-            acts.append(np.clip(u, -env.u_max, env.u_max))
-        return np.stack(hist, 1), np.stack(acts, 1)
+            acts.append(u)
+            ended = alive & ~env.valid_state(qp)
+            lengths[ended] = t + 1
+            alive &= ~ended
+            if not alive.any():
+                for _ in range(t + 1, T):  # pad
+                    hist.append(hist[-1])
+                    acts.append(np.zeros_like(u))
+                break
+        return np.stack(hist, 1), np.stack(acts, 1), lengths
 
-    def add(self, obs: np.ndarray, act: np.ndarray) -> None:
+    def add(self, obs: np.ndarray, act: np.ndarray, lengths: np.ndarray) -> None:
         self.obs += list(obs)
         self.act += list(act)
-        self.env_steps += act.shape[0] * act.shape[1]
+        self.lens += [int(x) for x in lengths]
+        self.env_steps += int(lengths.sum())  # only executed steps count towards the budget
         if self.normaliser is None:  # fixed after the random warm-up (state mode needs it)
-            self.normaliser = Normaliser.fit(np.stack(self.obs))
+            self.normaliser = Normaliser.fit(
+                np.concatenate([o[: L + 1] for o, L in zip(self.obs, self.lens)])
+            )
         self._write_buffer()
 
     def _write_buffer(self) -> None:
         d = self.run_dir / "buffer"
         d.mkdir(parents=True, exist_ok=True)
         obs, act = np.stack(self.obs), np.stack(self.act)
-        np.savez(d / "train.npz", obs=obs, act=act, passive=np.zeros(len(obs), dtype=bool))
+        np.savez(
+            d / "train.npz",
+            obs=obs,
+            act=act,
+            passive=np.zeros(len(obs), dtype=bool),
+            lengths=np.asarray(self.lens),
+        )
 
     # --- training ---------------------------------------------------------------------------------
     def train(self) -> dict[str, float]:
@@ -206,15 +230,18 @@ class MBRL:
     # --- evaluation -------------------------------------------------------------------------------
     @torch.no_grad()
     def evaluate(self, checkpoint: int) -> dict[str, Any]:
-        obs, act = self.run_episodes(self.mc["eval_episodes"], "mpc")
-        success = self.env.success(obs)
-        ret = self.env.reward(obs[:, 1:], act).sum(-1)
+        obs, act, lengths = self.run_episodes(self.mc["eval_episodes"], "mpc")
+        T = self.env.episode_len
+        success = self.env.success(obs) & (lengths == T)  # an episode that left the valid region fails
+        r = self.env.reward(obs[:, 1:], act)
+        ret = np.where(np.arange(T)[None] < lengths[:, None], r, 0.0).sum(-1)
         rec = {
             "checkpoint": checkpoint,
             "env_steps": self.env_steps,
             "success_rate": float(success.mean()),
             "mean_return": float(ret.mean()),
-            "returns": [float(r) for r in ret],
+            "returns": [float(x) for x in ret],
+            "lengths": [int(x) for x in lengths],
             "episodes": len(self.obs),
             "grad_steps": self.grad_steps,
             "sec": self._sec(),
@@ -227,8 +254,7 @@ class MBRL:
         self._prepare_dir()
         self.resume()
         if not self.obs:
-            o, a = self.run_episodes(self.mc["random_episodes"], "random")
-            self.add(o, a)
+            self.add(*self.run_episodes(self.mc["random_episodes"], "random"))
             self.save()
         its = 0
         while not self.done:
@@ -254,8 +280,7 @@ class MBRL:
             if self.env_steps >= self.mc["max_env_steps"] or all_evaluated:
                 self.done = True
             if not self.done:
-                o, a = self.run_episodes(1, "mpc")
-                self.add(o, a)
+                self.add(*self.run_episodes(1, "mpc"))
             self.iteration += 1
             its += 1
             self.save()
@@ -315,4 +340,9 @@ class MBRL:
         self._sec_offset, self.t0 = s["sec"], time.perf_counter()
         with np.load(self.run_dir / "buffer" / "train.npz") as z:
             self.obs, self.act = list(z["obs"]), list(z["act"])
+            self.lens = (
+                [int(x) for x in z["lengths"]]
+                if "lengths" in z.files
+                else [z["act"].shape[1]] * len(z["act"])
+            )
         return True
