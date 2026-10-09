@@ -1,0 +1,7 @@
+# H3 (amendment 2): E-ens vs RSSM in pixel mode on the three control tasks, pre-registered seeds.
+envs: [pendulum, cartpole, orbit]
+arms:
+  - {config: ensemble, obs_mode: pixels}
+  - {config: rssm, obs_mode: pixels}
+seeds: [0, 1, 2]
+mbrl_config: configs/mbrl_reduced.yaml

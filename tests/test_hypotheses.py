@@ -153,17 +153,20 @@ def test_h4_partially_confirmed_when_advantage_persists(tmp_path):
 def _mbrl(root, env, model, seed, successes):
     d = root / f"mbrl-{env}-{model}-pixels-s{seed}"
     d.mkdir(parents=True)
-    recs = [{"checkpoint": c, "env_steps": c, "success_rate": s} for c, s in zip(T.H3_CHECKPOINTS, successes)]
+    recs = [
+        {"checkpoint": c, "env_steps": c, "success_rate": s}
+        for c, s in zip(T.H3_CHECKPOINTS_AMENDED, successes)
+    ]
     (d / "mbrl.jsonl").write_text("".join(json.dumps(r) + "\n" for r in recs))
 
 
 def test_n80_rules():
     from hwm.eval.hypotheses import n80
 
-    recs = [{"checkpoint": c, "success_rate": s} for c, s in zip(T.H3_CHECKPOINTS, [0, 0.5, 0.8])]
+    recs = [{"checkpoint": c, "success_rate": s} for c, s in zip(T.H3_CHECKPOINTS_AMENDED, [0, 0.5, 0.8])]
     assert n80(recs) == 5000
     assert n80(recs[:2]) is None  # still running
-    assert n80([{"checkpoint": c, "success_rate": 0.1} for c in T.H3_CHECKPOINTS]) == math.inf
+    assert n80([{"checkpoint": c, "success_rate": 0.1} for c in T.H3_CHECKPOINTS_AMENDED]) == math.inf
 
 
 @pytest.mark.parametrize(
@@ -173,7 +176,7 @@ def test_n80_rules():
         ([0, 0, 0.9], [0, 0, 0, 0.9], "supported"),  # 5k vs 10k: exactly 0.5, the rule is <=
         ([0, 0, 0, 0.9], [0, 0, 0, 0.9], "not supported"),  # equal
         ([0] * 6, [0] * 6, "not supported"),  # neither learns: inf vs inf fails
-        ([0, 0, 0, 0, 0.8], [0] * 6, "supported"),  # finite vs inf passes
+        ([0, 0, 0, 0.8], [0] * 4, "supported"),  # finite vs inf passes
     ],
 )
 def test_h3_rule(tmp_path, e_succ, r_succ, expected):

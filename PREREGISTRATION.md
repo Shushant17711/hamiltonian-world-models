@@ -224,3 +224,27 @@ latent-consistency term λ_lat‖z_k − sg(enc(o_k))‖² grew without bound on
 *Cost to the comparison.* E received four diagnostic configurations on the validation split; the
 baselines received none (they trained stably with the defaults). That asymmetry favours E and is listed
 in LIMITATIONS.md. The thresholds, metrics, splits, seeds and decision rules of §4–§5 are unchanged.
+
+### Amendment 2 — 2026-10-09: reduced H3 protocol (before any H3 run)
+
+*Why.* Timed on the RTX 4060 Laptop, the pre-registered H3 protocol (2,000 gradient steps per collected
+episode, CEM population 400 × horizon 30 × 5 iterations, up to 50k env steps) costs ~6.8 s per training step
+and ~5 s per env step of planning for the 5-member pixel ensemble: months of compute for 18 runs. No H3 run
+had been started.
+
+*Changes* (`configs/mbrl_reduced.yaml`, `configs/sweeps/mbrl.yaml`):
+- training: 250 gradient steps per iteration (was 2,000), batch 32 windows per member (was 128), horizon
+  4 → 8 → 16 by iteration (was up to 32);
+- planner: CEM horizon 20, population 100, elites 10, 3 iterations (was 30 / 400 / 40 / 5); β = 1.0 unchanged;
+- budget: at most 10,000 env steps, success evaluated at {1k, 2k, 5k, 10k} (was up to 50k with 20k and 50k
+  checkpoints); N80 = ∞ if 80% is not reached by 10k (`thresholds.H3_CHECKPOINTS_AMENDED`);
+- the descriptive third arm (E-ens with state observations) is dropped; it had no role in the decision rule.
+
+*Unchanged.* Tasks, start states, success predicates, 10 evaluation episodes per checkpoint, 5 random warm-up
+episodes, seeds {0, 1, 2}, the N80 median rule, the ≤ 0.5 ratio and "≥ 2 of 3 tasks".
+
+*Cost to the comparison.* A smaller planner and training budget may hurt both models, and the 10k cap turns
+any slower learner into ∞; with the ratio rule an E-ens that reaches 80% while the RSSM does not still
+passes, and the reverse fails. The verdict under the original protocol cannot be computed. Measured cost
+after the change: ~0.6 s per training step and ~0.4 s per env step for E-ens (pixels), ~3 GPU-hours per run;
+~15 minutes per RSSM run.

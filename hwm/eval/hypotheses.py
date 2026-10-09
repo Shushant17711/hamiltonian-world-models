@@ -236,7 +236,7 @@ def n80(records: list[dict]) -> float | None:
         if r["success_rate"] >= T.H3_SUCCESS_THRESHOLD:
             return float(r["checkpoint"])
         done.add(r["checkpoint"])
-    return math.inf if set(T.H3_CHECKPOINTS) <= done else None
+    return math.inf if set(T.H3_CHECKPOINTS_AMENDED) <= done else None
 
 
 def _median(v: list[float]) -> float:
@@ -248,7 +248,7 @@ def evaluate_h3(runs: dict[str, list[dict]]) -> Verdict:
     rule = (
         f"per task (pixel mode): median over seeds of N80 = env steps to the first checkpoint with success >= "
         f"{T.H3_SUCCESS_THRESHOLD:.0%} ({T.H3_EVAL_EPISODES} MPC episodes; inf if never within "
-        f"{max(T.H3_CHECKPOINTS):,}); pass if N80(E-ens) <= {T.H3_MAX_RATIO:g} x N80(RSSM) (finite <= inf passes, "
+        f"{max(T.H3_CHECKPOINTS_AMENDED):,} env steps, amendment 2); pass if N80(E-ens) <= {T.H3_MAX_RATIO:g} x N80(RSSM) (finite <= inf passes, "
         f"inf vs inf fails); supported if >= {T.H3_MIN_ENVS_PASSING} of {len(T.H3_ENVS)} tasks pass"
     )
     envs = []

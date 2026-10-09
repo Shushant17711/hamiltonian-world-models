@@ -1,0 +1,17 @@
+# H3 protocol after amendment 2 (PREREGISTRATION.md, 2026-10-09): the pre-registered budget (configs/mbrl.yaml)
+# needs months on an RTX 4060 Laptop. Decision rule unchanged; budget and planner reduced.
+random_episodes: 5
+train_steps_per_iter: 250
+train_horizons: [4, 8, 16]
+batch: 32
+lr: 3.0e-4
+grad_clip: 10.0
+eval_at: [1000, 2000, 5000, 10000]
+eval_episodes: 10
+max_env_steps: 10000
+success_threshold: 0.8
+stop_at_success: true
+beta: 1.0
+ou_theta: 0.15
+ou_sigma: 0.3
+cem: {horizon: 20, population: 100, elites: 10, iterations: 3, momentum: 0.1}

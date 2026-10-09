@@ -49,6 +49,11 @@ H3_MAX_RATIO = 0.5
 H3_BETA_ENSEMBLE = 1.0
 H3_MIN_ENVS_PASSING = 2
 
+# Amendment 2 (2026-10-09, PREREGISTRATION.md): the pre-registered MBRL budget is unaffordable on this
+# hardware, so H3 runs to 10k env steps. The frozen constants above stay as registered (the YAML test guards
+# them); the evaluator uses this amended checkpoint list. The decision rule itself is unchanged.
+H3_CHECKPOINTS_AMENDED = (1_000, 2_000, 5_000, 10_000)
+
 # H4: acrobot advantage(h) vs h*dt / t_lambda (descriptive, with a stated prediction).
 H4_ENV = "acrobot"
 H4_HORIZONS = (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000)
