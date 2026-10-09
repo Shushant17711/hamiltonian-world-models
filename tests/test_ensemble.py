@@ -81,3 +81,14 @@ def test_member_wise_backward_equals_summed_loss_gradient():
     e.backward(b, 4)
     for g, r in zip((p.grad for p in e.parameters()), ref, strict=True):
         torch.testing.assert_close(g, r)
+
+
+def test_a_non_finite_member_skips_alone():
+    e = _ens()
+    b = _batch(B=6, H=4)
+    orig = e.members[1].loss
+    e.members[1].loss = lambda batch, h: (orig(batch, h)[0] * float("nan"), {"loss": float("nan")})
+    logs = e.backward(b, 4)
+    assert logs["skipped_members"] == 1.0 and logs["loss"] == logs["loss"]  # finite average of the others
+    assert all(p.grad is None for p in e.members[1].parameters())
+    assert all(p.grad is not None for p in e.members[0].parameters())

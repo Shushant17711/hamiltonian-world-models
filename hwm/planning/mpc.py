@@ -23,6 +23,17 @@ from torch import Tensor
 from hwm.planning.cem import CEM, CEMConfig
 
 
+def _finite_mean_std(x: Tensor) -> tuple[Tensor, Tensor]:
+    """Mean and std over members (dim 0) of the finite predictions only: a member whose rollout diverged
+    must not turn every candidate's cost into NaN. Identical to mean/std when every member is finite."""
+    if bool(torch.isfinite(x).all()):
+        return x.mean(0), x.std(0, unbiased=False)
+    x = torch.where(torch.isfinite(x), x, torch.full_like(x, float("nan")))
+    mean = x.nanmean(0)
+    std = (x - mean).pow(2).nanmean(0).sqrt()
+    return mean, std
+
+
 class MPC:
     def __init__(
         self,
@@ -66,11 +77,12 @@ class MPC:
                 parts = m._parts(z)
                 if m.obs_mode == "state":
                     obs = torch.stack([mm.decode(zp) for mm, zp in zip(m.members, parts, strict=True)])
-                    r = self._state_reward(obs.mean(0), u)
-                    d = obs.std(0, unbiased=False).mean(-1)
+                    mean, std = _finite_mean_std(obs)
+                    r = self._state_reward(mean, u)
+                    d = std.mean(-1)
                 else:
                     rs = torch.stack([mm.reward(zp, u) for mm, zp in zip(m.members, parts, strict=True)])
-                    r, d = rs.mean(0), rs.std(0, unbiased=False)
+                    r, d = _finite_mean_std(rs)
                 D = D + d
             elif m.obs_mode == "state":
                 r = self._state_reward(m.decode(z), u)

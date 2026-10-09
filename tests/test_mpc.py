@@ -125,3 +125,27 @@ def test_batched_mpc_runs_episodes_in_lockstep():
     ctx = torch.tensor([[0.0, 0.0], [0.5, 0.0], [3.1, 0.0], [0.0, 2.0]])[:, None]
     a, _ = mpc.act(ctx)
     assert a.shape == (4, 1) and a.abs().max() <= 1.0
+
+
+def test_a_diverged_member_does_not_poison_planning():
+    from hwm.config import Config
+    from hwm.planning.mpc import _finite_mean_std
+
+    x = torch.tensor([[1.0, 2.0], [3.0, float("nan")], [5.0, 6.0]])
+    mean, std = _finite_mean_std(x)
+    torch.testing.assert_close(mean, torch.tensor([3.0, 4.0]))
+    torch.testing.assert_close(std, torch.tensor([(8 / 3) ** 0.5, 2.0]))
+    ens = Ensemble(Config({"members": 3, "member": {"name": "_toy"}}), _ToyEnv())
+    for i, mem in enumerate(ens.members):
+        mem.k = float(i)
+    ens.members[1].step = lambda z, u: torch.full_like(z, float("nan"))  # member 1 diverges
+    mpc = MPC(
+        ens,
+        _ToyEnv(),
+        Normaliser(np.zeros(1), np.ones(1)),
+        CEMConfig(horizon=3, population=50, elites=5),
+        beta=1.0,
+        generator=torch.Generator().manual_seed(0),
+    )
+    cost, _, _ = mpc.score(ens.encode(torch.zeros(1, 1, 1)), torch.rand(50, 3, 1) * 2 - 1)
+    assert torch.isfinite(cost).all()

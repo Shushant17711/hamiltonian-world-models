@@ -83,13 +83,25 @@ class Ensemble(WorldModel):
 
     def backward(self, batch, horizon: int) -> dict[str, float]:
         """One member at a time, so only one member's activations are alive (members share no parameters,
-        so the gradients equal those of the summed loss); a 5-member pixel ensemble fits in 8 GB this way."""
-        logs: dict[str, float] = {}
+        so the gradients equal those of the summed loss); a 5-member pixel ensemble fits in 8 GB this way.
+        A member whose loss is non-finite skips the step on its own, instead of blocking the whole ensemble.
+        Logged values are averages over the members that trained."""
+        sums: dict[str, float] = {}
+        ok = 0
         for m, b in zip(self.members, batch.split(self.M), strict=True):
             loss, lg = m.loss(b, horizon)
+            if not torch.isfinite(
+                loss
+            ):  # this member sits the step out; its grads stay None, so AdamW skips it
+                continue
             loss.backward()
+            ok += 1
             for k, v in lg.items():
-                logs[k] = logs.get(k, 0.0) + v / self.M
+                sums[k] = sums.get(k, 0.0) + v
+        if ok == 0:
+            return {"loss": float("nan")}
+        logs = {k: v / ok for k, v in sums.items()}
+        logs["skipped_members"] = float(self.M - ok)
         return logs
 
     # --- WorldModel contract -----------------------------------------------------------------------

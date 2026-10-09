@@ -262,3 +262,10 @@ stalled training. MBRL episodes now end at the first state outside `env.valid_st
 annulus limits dataset generation enforces, and the standard cart-pole termination rule. Such an episode is a
 failure; only executed steps count towards the env-step budget. The cart-pole and orbit E-ens seed-0 runs were
 restarted; the pendulum (no validity limit) is unaffected.
+
+*Fix, 2026-10-09 (third).* In the first cart-pole E-ens run one of the five members began producing NaN
+rollouts. The non-finite-update guard then skipped the whole ensemble's update (100% of steps), and because the
+planner averaged over all members every candidate's cost became NaN, so the run was planning blind. Now a member
+with a non-finite loss skips the step alone, and the planner's mean and disagreement use only the members whose
+predictions are finite. Both are exact no-ops when every member is finite, which held for every other E-ens run
+(no skipped updates), so those resumed; the cart-pole run was restarted.
