@@ -8,3 +8,4 @@ __pycache__/
 !/results/verdicts.md
 !/results/figures/
 !/results/verdicts.json
+!/results/lyapunov_acrobot.json

@@ -35,9 +35,35 @@ tested in-band and on a disjoint higher band.
 | H3 | with pixels, MPC with E-ens reaches 80% task success with ≤ ½ the env steps of the RSSM on ≥ 2 of 3 tasks |
 | H4 | on the acrobot the advantage holds within one Lyapunov time and is gone beyond three |
 
-## Results
+## Results (state vectors: H1, H2, H4)
 
-Results are being produced; see [`results/verdicts.md`](results/verdicts.md) and `results/figures/`.
+**None of the pre-registered hypotheses tested so far is supported.** 60 runs (5 models × 4 systems ×
+3 seeds); full tables with per-seed values and 95% bootstrap CIs in
+[`results/verdicts.md`](results/verdicts.md). Model E is the version after
+[amendment 1](PREREGISTRATION.md#amendments) (stability fixes made before any verdict existed).
+
+| hypothesis | verdict | in one line |
+|---|---|---|
+| H1 energy drift ≥ 10× below C | **not supported** (0 of 3 systems) | pendulum and cart-pole fail on one bad seed of E each; on the orbit E drifts far more than C on every seed |
+| H2 lower out-of-band error than every baseline | **not supported** (0 of 4) | E never beats all four baselines; on the acrobot every baseline beats it |
+| H3 sample-efficient control (pixels) | not run yet | the pre-registered protocol needs months of compute here; a reduced protocol will be added as amendment 2 |
+| H4 advantage within 1 Lyapunov time, gone beyond 3 | **not confirmed** | on the acrobot E is worse than the best baseline at every horizon (advantage 0.01–0.3) |
+
+**What the runs show.** E does what its structure promises — it conserves *its own* learned energy
+(learned-H drift 1e-5 to 1e-2 over 10,000 steps in 11 of 12 runs) — but conserving the learned energy is
+not conserving the true one. When a seed fits the system well, the true-energy drift is the lowest of any
+model: pendulum seeds 0 and 2 drift 0.002–0.006 (C: 0.15–0.27, and C's rollouts diverge on one seed),
+cart-pole seeds 0 and 1 drift 0.045 (baselines 0.6–2.9). When the learned H is off away from the data,
+the latent trajectory keeps H_θ fixed while sliding into regions that decode to states with the wrong
+energy: pendulum seed 1 (drift 58), cart-pole seed 2 (2,400), and all three orbit seeds (37 to 14,000).
+With three seeds the pre-registered CI lower bound is the worst seed, so one such seed fails a system.
+E also pays for its 2n-dimensional canonical bottleneck at short horizons: its one-step error is 10–1000×
+higher than the baselines' on every system (figure below), and it rarely wins that back later.
+
+![error vs horizon](results/figures/error_vs_horizon.png)
+![energy drift](results/figures/energy_drift.png)
+![out-of-band error](results/figures/ood_bars.png)
+![acrobot advantage vs Lyapunov time](results/figures/advantage_vs_lyapunov.png)
 
 ## Reproduce
 

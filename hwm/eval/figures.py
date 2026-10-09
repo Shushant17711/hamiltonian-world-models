@@ -130,10 +130,12 @@ def energy_drift(idx, out: Path) -> Path:
             ax.plot(steps, g, color=COLORS[letter], marker=MARKERS[letter], markevery=3, label=LABELS[letter])
             _label_end(ax, steps[-1], g[-1], letter, COLORS[letter])
         ax.set(xscale="log", yscale="log", title=env, xlabel="passive steps")
+        ax.set_ylim(1e-5, 1e4)  # diverging seeds reach 1e40; clipped so the rest stays readable
     axes[0].set_ylabel("max |H(x_t) − H(x_0)| / E_ref")
     axes[-1].legend(loc="upper left", bbox_to_anchor=(1.08, 1))
     fig.suptitle(
-        "True-energy drift of model rollouts with u = 0 (median over 50 states; seeds: geo-mean, min-max)",
+        "True-energy drift with u = 0 (median over 50 states; seeds: geo-mean, min-max; y clipped at 1e4; "
+        "a seed drops out where its median diverges)",
         x=0.01,
         ha="left",
     )

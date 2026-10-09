@@ -34,6 +34,18 @@ to `results/verdicts.md`.
 - **The cart-pole pole is ~5 px long in the 64x64 images**, because the fixed camera must cover the whole
   track. Pixel results on the cart-pole are therefore hard for every model.
 
+## Reading the H1/H2/H4 results
+
+- **"Not supported" is a statement about this implementation at this budget** (30k steps, untuned
+  defaults, 3 seeds), not about Hamiltonian structure in general. E's failures are dominated by seeds whose
+  learned Hamiltonian was wrong away from the data; a different training budget, a better-conditioned
+  latent, or more seeds could change the verdicts. They were not tried, by design.
+- **Several baselines diverge in long passive rollouts** (C on the pendulum and cart-pole, B and A in places),
+  which makes their drift infinite on some seeds. The ratio CIs then have infinite upper ends; the
+  verdicts depend on the lower ends only.
+- **The orbit results expose a gap in the solver fix**: one orbit seed did not even conserve its learned
+  energy (learned-H drift ~1e3), meaning 8 adaptive substeps were not enough there.
+
 ## Planning (H3)
 
 - **Pixel-mode ensemble disagreement uses the members' predicted rewards**, not decoded frames
