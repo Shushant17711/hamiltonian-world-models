@@ -46,7 +46,15 @@ def main() -> None:
     ap.add_argument("sweep")
     ap.add_argument("--shard", default="0/1")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument(
+        "--queue",
+        action="store_true",
+        help="shared work queue: each worker claims the next unclaimed run (lock file) instead of a fixed shard; "
+        "interrupted runs first, then E-ens runs (longest), then the rest",
+    )
     args = ap.parse_args()
+    if args.queue:
+        return run_queue(plan(args.sweep), args.dry_run)
     i, n = (int(x) for x in args.shard.split("/"))
     runs = plan(args.sweep)[i::n]
     todo = [r for r in runs if r["status"] != "done"]
@@ -59,6 +67,27 @@ def main() -> None:
         t0 = time.perf_counter()
         out = MBRL(r["cfg"], r["run_dir"]).run(verbose=True)
         print(f"[{k}/{len(todo)}] {r['run_dir'].name}: {out}  ({time.perf_counter() - t0:.0f}s)", flush=True)
+
+
+def run_queue(runs: list[dict], dry_run: bool) -> None:
+    import os
+
+    todo = [r for r in runs if r["status"] != "done"]
+    todo.sort(key=lambda r: (r["status"] != "resume", "_ens" not in r["run_dir"].name, r["run_dir"].name))
+    print(f"queue: {len(todo)} runs to do", flush=True)
+    for r in todo:
+        print(f"  {r['status']:<6} {r['run_dir'].name}", flush=True)
+    if dry_run:
+        return
+    for r in todo:
+        r["run_dir"].mkdir(parents=True, exist_ok=True)
+        try:  # atomic claim: exactly one worker gets each run
+            os.close(os.open(r["run_dir"] / ".claim", os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+        except FileExistsError:
+            continue
+        t0 = time.perf_counter()
+        out = MBRL(r["cfg"], r["run_dir"]).run(verbose=True)
+        print(f"{r['run_dir'].name}: {out}  ({time.perf_counter() - t0:.0f}s)", flush=True)
 
 
 if __name__ == "__main__":
