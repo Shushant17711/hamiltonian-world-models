@@ -122,13 +122,13 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests: members differ after init, disagreement is 0 when all members are identical copies
   - _Requirements: 5.4_
 
-- [ ] 9. Run the state-vector study and evaluate H1/H2
+- [x] 9. Run the state-vector study and evaluate H1/H2
 - [x] 9.1 Implement the hypothesis evaluator for H1/H2
   - `hwm/eval/hypotheses.py`: load `results/**/eval/metrics.json`, apply `thresholds.py`, write `results/verdicts.md` with per-env tables and CIs
   - Tests on synthetic result trees that pass and fail each hypothesis
   - _Requirements: 7.5, 7.4_
 
-- [ ] 9.2 Run the phase 2–3 sweep and commit verdicts
+- [x] 9.2 Run the phase 2–3 sweep and commit verdicts
   - `configs/sweeps/state.yaml`: {pendulum, cartpole, acrobot, orbit} × {A, B, C, D, E} × 3 seeds; generate data, run sweep, evaluate, write H1/H2 verdicts
   - Reproduce the friend's setting (orbit, model C) as a sanity row and record that it matches the qualitative result
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_

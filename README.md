@@ -60,6 +60,11 @@ With three seeds the pre-registered CI lower bound is the worst seed, so one suc
 E also pays for its 2n-dimensional canonical bottleneck at short horizons: its one-step error is 10–1000×
 higher than the baselines' on every system (figure below), and it rarely wins that back later.
 
+**Sanity row: the friend's setting reproduces.** On the two-body orbit, the energy-penalised latent ODE (C)
+drifts 0.21–0.37 over 10,000 passive steps against 256–393 for the plain MLP (A), and has lower
+1000-step error (1.05–1.58 vs 1.8–6.1) — the qualitative result of Optimus2007/physics-informed-world-models
+holds here, with actions and three seeds. On this system the loss-based approach beats the structural one.
+
 ![error vs horizon](results/figures/error_vs_horizon.png)
 ![energy drift](results/figures/energy_drift.png)
 ![out-of-band error](results/figures/ood_bars.png)
