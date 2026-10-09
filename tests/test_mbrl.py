@@ -76,3 +76,11 @@ def test_config_merge_and_run_id():
     cfg = _cfg("ensemble", "obs_mode=pixels", "env=cartpole", "mbrl.cem.population=200")
     assert mbrl_run_id(cfg) == "mbrl-cartpole-hamiltonian_ens-pixels-s0"
     assert cfg.mbrl.cem.population == 200 and cfg.mbrl.cem.horizon == 4 and cfg.mbrl.beta == 1.0
+
+
+def test_cartpole_random_warmup_stays_on_the_track(tmp_path):
+    cfg = _cfg("mlp", "env=cartpole", "model.hidden=16", "model.layers=1")
+    m = MBRL(cfg, tmp_path / "c")
+    assert m.centering is not None
+    obs, act = m.run_episodes(5, "random")
+    assert np.abs(obs[..., 0]).max() < 3.2 and np.abs(act).max() <= m.env.u_max

@@ -248,3 +248,10 @@ any slower learner into ∞; with the ratio rule an E-ens that reaches 80% while
 passes, and the reverse fails. The verdict under the original protocol cannot be computed. Measured cost
 after the change: ~0.6 s per training step and ~0.4 s per env step for E-ens (pixels), ~3 GPU-hours per run;
 ~15 minutes per RSSM run.
+
+*Fix, 2026-10-09 (after the first H3 runs started).* The MBRL warm-up episodes for the cart-pole used OU forces
+without the PD centring that dataset generation applies (design §3), so the cart left the track (|x| up to 181)
+and the reward targets (−0.05 x²) made the first cart-pole E-ens run diverge to NaN. Warm-up now uses the same
+action process as the datasets, and the MBRL training loop skips non-finite updates like the shared trainer.
+Pendulum and orbit runs are unaffected (no centring there) and resumed; the cart-pole run was restarted from
+scratch and the diverged one kept in `results/_diverged_v1/`.

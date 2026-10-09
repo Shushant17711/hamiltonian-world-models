@@ -19,6 +19,7 @@ The run directory holds ``mbrl.jsonl`` (one record per evaluated checkpoint), ``
 from __future__ import annotations
 
 import json
+import math
 import time
 from pathlib import Path
 from typing import Any
@@ -74,6 +75,9 @@ class MBRL:
         self.device = resolve_device(cfg.get("train", Config()).get("device", "auto"))
         self.rng = seed_everything(cfg.seed)
         self.env = make_env(cfg.env)
+        dcfg = load_config(Path(__file__).resolve().parents[2] / "configs" / "data" / f"{cfg.env}.yaml")
+        c = dcfg.actions.get("centering")
+        self.centering = tuple(c) if c else None
         self.model = build(cfg).to(self.device)
         self.is_ens = hasattr(self.model, "members")
         self.opt = torch.optim.AdamW(self.model.parameters(), lr=self.mc["lr"])
@@ -118,6 +122,11 @@ class MBRL:
         for t in range(T):
             if policy == "random":
                 u = seq[:, t]
+                if (
+                    self.centering is not None
+                ):  # as in dataset generation (design §3): keeps the cart on the track
+                    o = hist[-1]
+                    u = u - self.centering[0] * o[:, :1] - self.centering[1] * o[:, env.n : env.n + 1]
             else:
                 a, _ = mpc.act(self._context(hist))
                 u = a.double().cpu().numpy() * env.u_max
@@ -173,8 +182,12 @@ class MBRL:
                 batch = ds.sample(self.mc["batch"], self.gen)
             self.opt.zero_grad(set_to_none=True)
             logs = self.model.backward(batch, H)
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.mc["grad_clip"])
-            self.opt.step()
+            gn = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.mc["grad_clip"])
+            if math.isfinite(logs.get("loss", 0.0)) and torch.isfinite(gn):
+                self.opt.step()
+            else:  # never apply a non-finite update (as in the shared trainer, amendment 1)
+                self.opt.zero_grad(set_to_none=True)
+                logs = {"skipped": 1.0}
             self.grad_steps += 1
             for k, v in logs.items():
                 sums[k] = sums.get(k, 0.0) + v
