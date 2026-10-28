@@ -260,62 +260,71 @@
  },
  {
   "hypothesis": "H3",
-  "status": "incomplete",
-  "rule": "per task (pixel mode): median over seeds of N80 = env steps to the first checkpoint with success >= 80% (10 MPC episodes; inf if never within 50,000); pass if N80(E-ens) <= 0.5 x N80(RSSM) (finite <= inf passes, inf vs inf fails); supported if >= 2 of 3 tasks pass",
+  "status": "not supported",
+  "rule": "per task (pixel mode): median over seeds of N80 = env steps to the first checkpoint with success >= 80% (10 MPC episodes; inf if never within 10,000 env steps, amendment 2); pass if N80(E-ens) <= 0.5 x N80(RSSM) (finite <= inf passes, inf vs inf fails); supported if >= 2 of 3 tasks pass",
   "envs": [
    {
     "env": "pendulum",
-    "status": "incomplete",
+    "status": "fail",
     "detail": {
      "n80": {
-      "E-ens": [],
-      "RSSM": []
-     }
+      "E-ens": [
+       Infinity,
+       Infinity,
+       Infinity
+      ],
+      "RSSM": [
+       Infinity,
+       Infinity,
+       Infinity
+      ]
+     },
+     "median_E": Infinity,
+     "median_RSSM": Infinity
     },
-    "missing": [
-     "mbrl-pendulum-hamiltonian_ens-pixels-s0",
-     "mbrl-pendulum-hamiltonian_ens-pixels-s1",
-     "mbrl-pendulum-hamiltonian_ens-pixels-s2",
-     "mbrl-pendulum-rssm-pixels-s0",
-     "mbrl-pendulum-rssm-pixels-s1",
-     "mbrl-pendulum-rssm-pixels-s2"
-    ]
+    "missing": []
    },
    {
     "env": "cartpole",
-    "status": "incomplete",
+    "status": "fail",
     "detail": {
      "n80": {
-      "E-ens": [],
-      "RSSM": []
-     }
+      "E-ens": [
+       Infinity,
+       Infinity,
+       Infinity
+      ],
+      "RSSM": [
+       Infinity,
+       Infinity,
+       Infinity
+      ]
+     },
+     "median_E": Infinity,
+     "median_RSSM": Infinity
     },
-    "missing": [
-     "mbrl-cartpole-hamiltonian_ens-pixels-s0",
-     "mbrl-cartpole-hamiltonian_ens-pixels-s1",
-     "mbrl-cartpole-hamiltonian_ens-pixels-s2",
-     "mbrl-cartpole-rssm-pixels-s0",
-     "mbrl-cartpole-rssm-pixels-s1",
-     "mbrl-cartpole-rssm-pixels-s2"
-    ]
+    "missing": []
    },
    {
     "env": "orbit",
-    "status": "incomplete",
+    "status": "fail",
     "detail": {
      "n80": {
-      "E-ens": [],
-      "RSSM": []
-     }
+      "E-ens": [
+       Infinity,
+       Infinity,
+       Infinity
+      ],
+      "RSSM": [
+       Infinity,
+       Infinity,
+       Infinity
+      ]
+     },
+     "median_E": Infinity,
+     "median_RSSM": Infinity
     },
-    "missing": [
-     "mbrl-orbit-hamiltonian_ens-pixels-s0",
-     "mbrl-orbit-hamiltonian_ens-pixels-s1",
-     "mbrl-orbit-hamiltonian_ens-pixels-s2",
-     "mbrl-orbit-rssm-pixels-s0",
-     "mbrl-orbit-rssm-pixels-s1",
-     "mbrl-orbit-rssm-pixels-s2"
-    ]
+    "missing": []
    }
   ]
  },

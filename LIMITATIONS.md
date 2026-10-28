@@ -53,6 +53,12 @@ to `results/verdicts.md`.
   is the std of decoded states as specified.
 - **Runs stop at the first checkpoint that reaches 80% success** (`stop_at_success`). This cannot change
   N80 or the H3 verdict, but the success-vs-steps curves end there.
-- Compute-driven changes to the MBRL protocol, if any, are listed under Amendments in
-  `PREREGISTRATION.md` with the reason; the verdict under the original rule is reported first wherever
-  it can be computed.
+- **The H3 verdict rests on a floor effect.** Amendment 2 cut the budget (10k env steps instead of 50k,
+  250 instead of 2,000 gradient steps per iteration, CEM 100 × 20 × 3 instead of 400 × 30 × 5) to fit
+  the hardware; at that budget no model reached any success on any task, so "not supported" means
+  "not shown", not "E-ens is no more sample-efficient". The verdict under the original protocol could
+  not be computed.
+- **The return comparison in the README is exploratory**: returns were not a pre-registered measure,
+  and three seeds per cell cannot carry a claim.
+- In `mbrl-orbit-hamiltonian_ens-pixels-s2` the 1k checkpoint is logged twice (the run was resumed
+  across it); the two entries are identical, so the duplicate changes nothing.

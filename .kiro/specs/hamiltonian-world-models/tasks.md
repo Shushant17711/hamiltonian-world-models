@@ -170,7 +170,7 @@ earlier tasks. "Done" = `results/verdicts.md` reports H1–H4 against the pre-re
   - Tests on synthetic `mbrl.jsonl` trees
   - _Requirements: 8.5_
 
-- [ ] 13. Run the pixel + planning study and commit the H3 verdict
+- [x] 13. Run the pixel + planning study and commit the H3 verdict (amendment 2 protocol; 18 runs, H3 not supported: 0% success everywhere)
   - `configs/sweeps/mbrl.yaml`: {pendulum, cartpole, orbit} × {E-ens pixels, RSSM pixels, E-ens state} × 3 seeds; calibration eval on the E-ens runs
   - If wall-clock per seed exceeds the §12 budget, apply the documented population reduction and note it in the run config
   - _Requirements: 8.3, 8.4, 8.5_

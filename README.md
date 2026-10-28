@@ -35,9 +35,9 @@ tested in-band and on a disjoint higher band.
 | H3 | with pixels, MPC with E-ens reaches 80% task success with ≤ ½ the env steps of the RSSM on ≥ 2 of 3 tasks |
 | H4 | on the acrobot the advantage holds within one Lyapunov time and is gone beyond three |
 
-## Results (state vectors: H1, H2, H4)
+## Results
 
-**None of the pre-registered hypotheses tested so far is supported.** 60 runs (5 models × 4 systems ×
+**None of the four pre-registered hypotheses is supported.** 60 runs (5 models × 4 systems ×
 3 seeds); full tables with per-seed values and 95% bootstrap CIs in
 [`results/verdicts.md`](results/verdicts.md). Model E is the version after
 [amendment 1](PREREGISTRATION.md#amendments) (stability fixes made before any verdict existed).
@@ -46,7 +46,7 @@ tested in-band and on a disjoint higher band.
 |---|---|---|
 | H1 energy drift ≥ 10× below C | **not supported** (0 of 3 systems) | pendulum and cart-pole fail on one bad seed of E each; on the orbit E drifts far more than C on every seed |
 | H2 lower out-of-band error than every baseline | **not supported** (0 of 4) | E never beats all four baselines; on the acrobot every baseline beats it |
-| H3 sample-efficient control (pixels) | not run yet | the pre-registered protocol needs months of compute here; a reduced protocol will be added as amendment 2 |
+| H3 sample-efficient control (pixels) | **not supported** (0 of 3 tasks) | under the reduced protocol of amendment 2 neither E-ens nor the RSSM reaches 80% success on any task within 10k env steps (0% at every checkpoint, all 18 runs), so ∞ vs ∞ fails by the pre-registered rule |
 | H4 advantage within 1 Lyapunov time, gone beyond 3 | **not confirmed** | on the acrobot E is worse than the best baseline at every horizon (advantage 0.01–0.3) |
 
 **What the runs show.** E does what its structure promises — it conserves *its own* learned energy
@@ -65,9 +65,31 @@ drifts 0.21–0.37 over 10,000 passive steps against 256–393 for the plain MLP
 1000-step error (1.05–1.58 vs 1.8–6.1) — the qualitative result of Optimus2007/physics-informed-world-models
 holds here, with actions and three seeds. On this system the loss-based approach beats the structural one.
 
+**H3: a floor effect, not a comparison.** All 18 pixel MBRL runs (3 tasks × 2 models × 3 seeds) reach
+10k env steps with 0% success at every checkpoint. The verdict follows the rule as registered (a task where
+neither model learns is not evidence for E), but the experiment cannot rank the two models: with the
+budget and planner cut by amendment 2 to fit an RTX 4060 Laptop (~3 GPU-hours per E-ens run), neither
+learns the tasks. Whether E-ens would win under the original 50k-step protocol is unknown.
+
+*Exploratory (not pre-registered), mean MPC return over 10 evaluation episodes, mean over 3 seeds:*
+
+| task | model | 1k | 2k | 5k | 10k | 10k per seed |
+|---|---|---|---|---|---|---|
+| pendulum | E-ens | −190.8 | −115.5 | −49.4 | −52.6 | −40.5, −81.1, −36.2 |
+| pendulum | RSSM | −196.4 | −195.2 | −194.1 | −183.7 | −172.8, −184.0, −194.2 |
+| cart-pole | E-ens | −12.1 | −20.1 | −12.5 | −11.0 | −16.9, −13.2, −3.0 |
+| cart-pole | RSSM | −12.3 | −20.9 | −12.6 | −3.0 | −2.4, −6.5, −0.2 |
+| orbit | E-ens | −176.4 | −175.5 | −180.5 | −154.5 | −163.3, −119.9, −180.3 |
+| orbit | RSSM | −202.9 | −199.9 | −272.5 | −147.3 | −215.6, −109.9, −116.2 |
+
+On the pendulum every E-ens seed improves its return by ~4× while the RSSM stays near its random-policy
+level; on the cart-pole the RSSM ends ahead on every seed; the orbit is mixed. Three seeds and a measure
+chosen after the fact: a lead for a properly budgeted follow-up, not a result.
+
 ![error vs horizon](results/figures/error_vs_horizon.png)
 ![energy drift](results/figures/energy_drift.png)
 ![out-of-band error](results/figures/ood_bars.png)
+![success vs env steps](results/figures/success_vs_steps.png)
 ![acrobot advantage vs Lyapunov time](results/figures/advantage_vs_lyapunov.png)
 
 ## Reproduce
