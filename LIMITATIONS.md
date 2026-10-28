@@ -62,3 +62,11 @@ to `results/verdicts.md`.
   and three seeds per cell cannot carry a claim.
 - In `mbrl-orbit-hamiltonian_ens-pixels-s2` the 1k checkpoint is logged twice (the run was resumed
   across it); the two entries are identical, so the duplicate changes nothing.
+- **No ensemble calibration result.** The disagreement-vs-error analysis (`hwm/eval/calibration.py`,
+  Spearman ρ and a reliability curve) is implemented and tested, but the only ensembles trained are the
+  pixel MBRL runs, and their buffers are not the held-out splits `scripts/evaluate.py` scores. So
+  `make_figures.py` makes no reliability plot, and the study says nothing about whether disagreement
+  tracks error.
+- **The acrobot was not added to the MBRL sweep.** It is not one of the pre-registered H3 tasks, and the
+  three tasks that are all hit the floor at the amendment-2 budget, so an exploratory acrobot run
+  would have cost about 10 GPU-hours to show the same 0%.
